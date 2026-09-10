@@ -109,3 +109,5 @@ InitTestScene*.unity*
 /[Aa]ssets/[Ss]ceneDependencyCache*
 
 .DS_Store
+*_BackUpThisFolder_ButDontShipItWithYourGame/
+.vscode/
