@@ -1,8 +1,5 @@
 using UnityEngine;
 
-// Attach this to your Fireball prefab (a sphere with a Rigidbody).
-// It just flies forward in a straight line and destroys itself either
-// when it hits something, or after a few seconds if it never does.
 
 [RequireComponent(typeof(Rigidbody))]
 public class FireballProjectile : MonoBehaviour
@@ -22,7 +19,7 @@ public class FireballProjectile : MonoBehaviour
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        rb.useGravity = false; // fireballs fly straight, they don't arc/fall
+        rb.useGravity = false;
 
         // Launch immediately, in the same frame it's created -- no
         // pause sitting at the spawn point before it starts moving.
@@ -37,17 +34,12 @@ public class FireballProjectile : MonoBehaviour
     void OnCollisionEnter(Collision collision)
     {
         // Ignore collisions during the brief grace period right after
-        // spawning -- this is almost certainly why it was disappearing
-        // instantly: it spawned overlapping your own hand and "hit" it
-        // before it had a chance to actually fly clear.
         if (Time.time - spawnTime < spawnGracePeriod)
         {
             return;
         }
 
-        // TODO: this is where you'll check if it hit your monster and deal
-        // damage -- for now it just disappears on any hit, which is a good
-        // first test to confirm it's actually flying and colliding correctly.
+        // TODO: this is where we check if it hit the monster and deal damage
         Debug.Log("Fireball hit: " + collision.gameObject.name);
         Destroy(gameObject);
     }

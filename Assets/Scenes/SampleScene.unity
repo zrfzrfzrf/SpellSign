@@ -6035,6 +6035,7 @@ GameObject:
   - component: {fileID: 397383763}
   - component: {fileID: 397383764}
   - component: {fileID: 397383765}
+  - component: {fileID: 397383766}
   m_Layer: 0
   m_Name: GestureDetector
   m_TagString: Untagged
@@ -6064,7 +6065,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 397383761}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 738d1997ef06d4f858fb9a142cf32fc5, type: 3}
   m_Name: 
@@ -6103,6 +6104,40 @@ MonoBehaviour:
   rayObjects:
   - {fileID: 1715145274}
   - {fileID: 388324997}
+--- !u!114 &397383766
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 397383761}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bb0dfe5b6d5ad4948b70934bbade87ac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HandGestureRecognizer
+  palm: {fileID: 1729317484}
+  thumbTip: {fileID: 2057994654}
+  indexTip: {fileID: 1196055300}
+  middleTip: {fileID: 1781153005}
+  ringTip: {fileID: 301676879}
+  pinkyTip: {fileID: 177667440}
+  closeThreshold: 0.1
+  openThreshold: 0.13
+  poses:
+  - {fileID: 11400000, guid: d522da379f2b14fb4af56c6ed3bb331b, type: 2}
+  - {fileID: 11400000, guid: 62522e4d6a5e447f0845bd0582687ecd, type: 2}
+  aimSource: {fileID: 0}
+  indexKnuckle: {fileID: 2092750117}
+  handForwardAxis: 0
+  spawnOffset: 0.4
+  aimPitchCorrection: 0
+  globalCastCooldown: 0.15
+  settleSpeedThreshold: 0.6
+  headReference: {fileID: 1738798233}
+  palmNormalAxis: 0
+  palmAwayDotThreshold: 0
+  debugLogState: 1
 --- !u!1 &399042332
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,10 +1,6 @@
 using UnityEngine;
 
-// Attach this to any GameObject in your scene (e.g. your GestureDetector).
-// It forcibly disables hand ray pointers shortly after the app starts,
-// which is useful when something else in the Interaction SDK rig keeps
-// re-enabling them even after you've disabled them manually in the Editor.
-//
+// This forcibly disables hand ray pointers
 // Drag in every "HandRayInteractor" GameObject (both hands) from your
 // Hierarchy into the rayObjects list below.
 
@@ -15,9 +11,7 @@ public class DisableHandRays : MonoBehaviour
 
     void Start()
     {
-        // A short delay ensures this runs AFTER whatever system in the
-        // Interaction SDK rig might try to enable these on startup.
-        Invoke(nameof(DisableRays), 0.5f);
+        DisableRays();
     }
 
     void DisableRays()
@@ -29,17 +23,17 @@ public class DisableHandRays : MonoBehaviour
         }
     }
 
-    // Also keep re-checking every second, in case something keeps
-    // turning them back on repeatedly rather than just once at startup.
-    void Update()
+    // LateUpdate runs AFTER every other GameObject's Update() this frame,
+    // so it wins the race against whatever in the Interaction SDK rig is 
+    // re-enabling these - Update() couldn't guarantee that since Unity
+    // doesn't guarantee Update() execution order between scripts.
+    // Checked every frame (not just once/sec) so there's no visible flicker.
+    void LateUpdate()
     {
-        if (Time.frameCount % 60 == 0) // roughly once a second
+        foreach (var obj in rayObjects)
         {
-            foreach (var obj in rayObjects)
-            {
-                if (obj != null && obj.activeSelf)
-                    obj.SetActive(false);
-            }
+            if (obj != null && obj.activeSelf)
+                obj.SetActive(false);
         }
     }
 }

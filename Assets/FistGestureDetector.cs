@@ -1,20 +1,5 @@
 using UnityEngine;
 
-// Attach this script to a GameObject in your scene (e.g. an empty GameObject
-// called "GestureDetector"). Then, in the Inspector, drag in the joint
-// Transforms from your OVRHandVisualRight (or Left) object's "Hand Visual"
-// component -- specifically:
-//   palm        <- HandWristRoot
-//   thumbTip    <- HandThumbTip
-//   indexTip    <- HandIndexTip
-//   middleTip   <- HandMiddleTip
-//   ringTip     <- HandRingTip
-//   pinkyTip    <- HandPinkyTip
-//
-// This detects a closed fist by checking how close each fingertip is to
-// the wrist/palm. No Editor Play mode, Simulator, or Quest Link required --
-// this runs entirely on-device when you Build and Run to the headset.
-
 public class FistGestureDetector : MonoBehaviour
 {
     public enum LocalAxis { Forward, Back, Up, Down, Right, Left }
