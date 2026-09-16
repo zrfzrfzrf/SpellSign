@@ -39,8 +39,12 @@ public class FireballProjectile : MonoBehaviour
             return;
         }
 
-        // TODO: this is where we check if it hit the monster and deal damage
         Debug.Log("Fireball hit: " + collision.gameObject.name);
+
+        EnemyTarget target = collision.gameObject.GetComponent<EnemyTarget>();
+        if (target != null)
+            target.TakeHit();
+        
         Destroy(gameObject);
     }
 }

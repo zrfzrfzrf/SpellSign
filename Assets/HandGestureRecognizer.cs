@@ -1,13 +1,16 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// It tracks each finger's curl state independently and
+// Generalized version of FistGestureDetector -- instead of hardcoding one
+// gesture (fist), it tracks each finger's curl state independently and
 // checks every SpellPoseDefinition you assign against the current hand
 // shape. The aiming/spawning logic (aimSource -> indexKnuckle -> local
 // axis fallback) is unchanged from the original script.
 //
 // Setup is the same as before: drag in the joint Transforms from your
-// OVRHandVisualRight/Left's Hand Visual component.
+// OVRHandVisualRight/Left's Hand Visual component. Then, instead of one
+// Fireball Prefab field, drag in a list of SpellPoseDefinition assets
+// (one per spell) under "Poses".
 
 public class HandGestureRecognizer : MonoBehaviour
 {
@@ -147,7 +150,15 @@ public class HandGestureRecognizer : MonoBehaviour
                 OnPoseReleased(pose);
 
             if (isConfirmed && pose.effectObject != null)
+            {
+                // Position AND rotation now track the palm every frame.
+                // Position-only was fine for Fire's glow (no "facing" to
+                // speak of), but a hand-attached shield needs to turn with
+                // your palm too, or it'll just hover there facing whichever
+                // way it happened to spawn.
                 pose.effectObject.transform.position = palm.position;
+                pose.effectObject.transform.rotation = palm.rotation;
+            }
 
             state.confirmed = isConfirmed;
         }

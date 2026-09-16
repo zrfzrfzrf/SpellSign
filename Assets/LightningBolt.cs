@@ -42,6 +42,9 @@ public class LightningBolt : MonoBehaviour
             // whatever was hit, once the boss has a status-effect component
             // (same TODO spot as FireballProjectile's collision handler).
             Debug.Log("Lightning hit: " + hit.collider.gameObject.name);
+            EnemyTarget target = hit.collider.GetComponent<EnemyTarget>();
+            if (target != null)
+                target.TakeHit();
         }
         else
         {
