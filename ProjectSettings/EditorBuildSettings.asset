@@ -5,8 +5,8 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 0
-    path: Assets/Scenes/SampleScene.unity
+  - enabled: 1
+    path: Assets/Scenes/MainScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
   - enabled: 0
     path: "Assets/Samples/Meta XR Interaction \u200BSDK/205.0.0/Example Scenes/PoseExamples.unity"
@@ -14,7 +14,7 @@ EditorBuildSettings:
   - enabled: 0
     path: "Assets/Samples/Meta XR Interaction \u200BSDK/205.0.0/Example Scenes/HandGrabExamples.unity"
     guid: 39ae0e546b9edc0408d3b11c6a7c2814
-  - enabled: 1
+  - enabled: 0
     path: Assets/MRUKSamples/NavMesh/NavMesh.unity
     guid: 1cb4cdae8d23e7944b05ff41ed8521ec
   m_configObjects:
