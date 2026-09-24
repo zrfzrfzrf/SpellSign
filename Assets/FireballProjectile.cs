@@ -10,8 +10,11 @@ public class FireballProjectile : MonoBehaviour
     [Tooltip("How many seconds before the fireball destroys itself if it never hits anything")]
     public float lifetime = 5f;
 
-    [Tooltip("Brief grace period (seconds) right after spawning where collisions are IGNORED. This prevents the fireball from instantly destroying itself if it spawns overlapping or very close to your own hand -- very likely what's been causing it to 'appear and immediately disappear.'")]
+    [Tooltip("Brief grace period (seconds) right after spawning where a collision with your OWN hand/body (tagged 'Player') is ignored -- in case the fireball spawns overlapping it. This never ignores real-world furniture or an enemy, no matter how close or how soon.")]
     public float spawnGracePeriod = 0.15f;
+
+    [Tooltip("Tag used on your own hand/body colliders, if any. Collisions with objects carrying this tag are the ONLY thing the grace period ever ignores. If nothing in your hand rig has a collider (or none is tagged this way), this branch simply never triggers -- which is correct.")]
+    public string selfTag = "Player";
 
     private Rigidbody rb;
     private float spawnTime;
@@ -33,9 +36,15 @@ public class FireballProjectile : MonoBehaviour
 
     void OnCollisionEnter(Collision collision)
     {
-        // Ignore collisions during the brief grace period right after
-        if (Time.time - spawnTime < spawnGracePeriod)
+        // Only ignore a collision here if it's tagged as YOUR OWN hand/body,
+        // and only within the short grace window right after spawn. Real-world
+        // furniture (EffectMesh colliders) and the enemy are never exempted,
+        // no matter how soon the hit happens -- that was the bug: everything
+        // nearby was getting swallowed in that window, not just your hand.
+        bool isSelf = !string.IsNullOrEmpty(selfTag) && collision.gameObject.CompareTag(selfTag);
+        if (isSelf && Time.time - spawnTime < spawnGracePeriod)
         {
+            Debug.Log("[FireballProjectile] Ignored early self-collision with: " + collision.gameObject.name);
             return;
         }
 
@@ -44,7 +53,7 @@ public class FireballProjectile : MonoBehaviour
         EnemyTarget target = collision.gameObject.GetComponent<EnemyTarget>();
         if (target != null)
             target.TakeHit();
-        
+
         Destroy(gameObject);
     }
 }
