@@ -150,7 +150,7 @@ public class DragonBoss : MonoBehaviour
         if (projectilePrefab == null) return;
         GameObject proj = Instantiate(projectilePrefab, muzzle.position, Quaternion.identity);
         BossProjectile bp = proj.GetComponent<BossProjectile>();
-        if (bp != null) bp.Launch(target.position, obstacleMask);
+        if (bp != null) bp.Launch(target.position, obstacleMask, target);
     }
 
     void OnDrawGizmosSelected()

@@ -1,27 +1,42 @@
 using UnityEngine;
 
-// Bare-bones projectile for the boss stand-in. Flies toward the point it
-// was launched at and dies if it hits real-world furniture on the way
-// (so cover works both directions: your spells get blocked by furniture,
-// and now the boss's shots do too).
+// Bare-bones projectile for the dragon boss. Flies toward the point it was
+// launched at and dies if it hits real-world furniture on the way (so cover
+// works both directions: your spells get blocked by furniture, and the
+// boss's shots do too).
 //
-// Attach this to whatever prefab you set as BossStandIn's
-// "Projectile Prefab" -- a plain sphere primitive with a small Rigidbody
-// (or none) is enough for testing.
+// Also does distance-based player-hit detection: the VR player rig has no
+// physical Collider (see PlayerController's "Real Hands" setup), so instead
+// of OnTriggerEnter we just check, every frame, whether we've gotten within
+// hitRadius of playerTarget (your CenterEyeAnchor). That's enough for a
+// head-hit check without needing a Collider on the player at all.
+//
+// Attach this to whatever prefab you set as DragonBoss's "Projectile
+// Prefab" -- a plain sphere primitive with a small Rigidbody (or none) is
+// enough for testing.
 public class BossProjectile : MonoBehaviour
 {
     public float speed = 8f;
     public float lifetime = 5f;
 
+    [Header("Player hit")]
+    [Tooltip("How close to playerTarget counts as a hit, in meters.")]
+    public float hitRadius = 0.3f;
+    public int damageAmount = 10;
+
     private Vector3 direction;
     private LayerMask obstacleMask;
+    private Transform playerTarget;
     private bool launched = false;
 
-    // Called by BossStandIn right after Instantiate.
-    public void Launch(Vector3 targetPosition, LayerMask obstacleMask)
+    // Called by DragonBoss right after Instantiate. playerTarget is
+    // optional -- pass it to get player-hit detection; leave it null and
+    // this behaves exactly like before (furniture-blocked, but harmless).
+    public void Launch(Vector3 targetPosition, LayerMask obstacleMask, Transform playerTarget = null)
     {
         direction = (targetPosition - transform.position).normalized;
         this.obstacleMask = obstacleMask;
+        this.playerTarget = playerTarget;
         launched = true;
         Destroy(gameObject, lifetime);
     }
@@ -44,8 +59,20 @@ public class BossProjectile : MonoBehaviour
         }
 
         transform.position += direction * step;
-    }
 
-    // TODO once you have a real player-hit trigger/collider to check against:
-    // void OnTriggerEnter(Collider other) { if (other.CompareTag("Player")) { ... } }
+        if (playerTarget != null)
+        {
+            float distToPlayer = Vector3.Distance(transform.position, playerTarget.position);
+            if (distToPlayer <= hitRadius)
+            {
+                PlayerHealth health = playerTarget.GetComponentInParent<PlayerHealth>();
+                if (health != null)
+                    health.TakeDamage(damageAmount);
+                else
+                    Debug.LogWarning("[BossProjectile] Hit the player but no PlayerHealth found on/above playerTarget.");
+
+                Destroy(gameObject);
+            }
+        }
+    }
 }
