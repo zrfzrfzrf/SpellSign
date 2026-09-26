@@ -91,6 +91,21 @@ public class HandGestureRecognizer : MonoBehaviour
     private bool havePrevTips = false;
     private float currentSettleSpeed = 0f;
 
+    [Header("Aim Smoothing (all spells)")]
+    [Tooltip("How fast the smoothed joint positions catch up to the raw tracked positions, per second. Higher = less lag but less smoothing of hand-tracking jitter; lower = smoother but more delay between actually aiming and the aim direction catching up.")]
+    public float aimSmoothSpeed = 20f;
+
+    // Exponentially-smoothed copies of palm/indexTip/indexKnuckle. Every aim
+    // mode (PointWithFingers, and the indexKnuckle->palm fallback that Fire
+    // and Water currently use since aimSource is unassigned) ultimately
+    // subtracts two live tracked joint positions -- raw per-frame data is
+    // noisy enough that a poorly-timed cast (e.g. right as poseConfirmDelay
+    // elapses) can catch a tracking glitch and fire off-axis.
+    private Vector3 smoothedPalm;
+    private Vector3 smoothedIndexTip;
+    private Vector3 smoothedIndexKnuckle;
+    private bool haveSmoothedAim = false;
+
     void Start()
     {
         poseState.Clear();
@@ -108,6 +123,7 @@ public class HandGestureRecognizer : MonoBehaviour
 
         UpdateFingerCurlStates();
         UpdateSettleSpeed();
+        UpdateAimSmoothing();
         bool handSettled = currentSettleSpeed <= settleSpeedThreshold;
 
         float facingDot = 0f;
@@ -225,6 +241,31 @@ public class HandGestureRecognizer : MonoBehaviour
         havePrevTips = true;
     }
 
+    void UpdateAimSmoothing()
+    {
+        // palm is guaranteed non-null here -- Update() already returned
+        // early above if it wasn't. indexTip/indexKnuckle are still
+        // optional (not every rig setup drags them in), so each is only
+        // smoothed if assigned.
+        if (!haveSmoothedAim)
+        {
+            // First frame: snap straight to the real positions instead of
+            // lerping from zero, so the very first cast isn't skewed
+            // toward the world origin.
+            smoothedPalm = palm.position;
+            if (indexTip != null) smoothedIndexTip = indexTip.position;
+            if (indexKnuckle != null) smoothedIndexKnuckle = indexKnuckle.position;
+            haveSmoothedAim = true;
+            return;
+        }
+
+        smoothedPalm = Vector3.Lerp(smoothedPalm, palm.position, aimSmoothSpeed * Time.deltaTime);
+        if (indexTip != null)
+            smoothedIndexTip = Vector3.Lerp(smoothedIndexTip, indexTip.position, aimSmoothSpeed * Time.deltaTime);
+        if (indexKnuckle != null)
+            smoothedIndexKnuckle = Vector3.Lerp(smoothedIndexKnuckle, indexKnuckle.position, aimSmoothSpeed * Time.deltaTime);
+    }
+
     void OnPoseDetected(SpellPoseDefinition pose, PoseRuntime state)
     {
         Debug.Log($"Pose detected: {pose.spellName}");
@@ -279,13 +320,13 @@ public class HandGestureRecognizer : MonoBehaviour
         if (pose.aimMode == SpellPoseDefinition.AimMode.PointWithFingers
             && indexTip != null && indexKnuckle != null)
         {
-            return (indexTip.position - indexKnuckle.position).normalized;
+            return (smoothedIndexTip - smoothedIndexKnuckle).normalized;
         }
 
         if (aimSource != null)
             return aimSource.forward;
         if (indexKnuckle != null)
-            return (indexKnuckle.position - palm.position).normalized;
+            return (smoothedIndexKnuckle - smoothedPalm).normalized;
         return GetAxisDirection(handForwardAxis);
     }
 
