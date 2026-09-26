@@ -50,7 +50,10 @@ public class FireballProjectile : MonoBehaviour
 
         Debug.Log("Fireball hit: " + collision.gameObject.name);
 
-        EnemyTarget target = collision.gameObject.GetComponent<EnemyTarget>();
+        // GetComponentInParent, not GetComponent -- the hit collider may be
+        // on a CHILD part of a multi-mesh model (e.g. the dragon's Cube/
+        // Cube.002), while EnemyTarget sits on the root object.
+        EnemyTarget target = collision.gameObject.GetComponentInParent<EnemyTarget>();
         if (target != null)
             target.TakeHit();
 

@@ -1,10 +1,15 @@
 using UnityEngine;
 using System.Collections;
 
-// Attach to any GameObject with a Collider (a Capsule/Cube primitive works
-// fine) to make it a hittable placeholder enemy. FireballProjectile and
-// LightningBolt both look for this component on whatever they hit and call
-// TakeHit() on it -- that's the only wiring needed.
+// Attach to any GameObject to make it a hittable placeholder enemy.
+// FireballProjectile and LightningBolt both look for this component
+// (via GetComponentInParent, so it can sit on a parent above the actual
+// hit collider) and call TakeHit() on it -- that's the only wiring needed.
+//
+// Works for both a single-mesh enemy (like the capsule) and a multi-part
+// model (like a dragon split into separate Cube/Cube.002 child meshes) --
+// it flashes every Renderer found anywhere under this object, not just one
+// on this exact GameObject.
 
 public class EnemyTarget : MonoBehaviour
 {
@@ -14,22 +19,25 @@ public class EnemyTarget : MonoBehaviour
     [Tooltip("Color to flash to when hit.")]
     public Color flashColor = Color.white;
 
-    private Renderer rend;
-    private Color originalColor;
+    private Renderer[] renderers;
+    private Color[] originalColors;
     private Coroutine flashRoutine;
 
     void Awake()
     {
-        rend = GetComponent<Renderer>();
-        if (rend != null)
-            originalColor = rend.material.color;
+        renderers = GetComponentsInChildren<Renderer>();
+        originalColors = new Color[renderers.Length];
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            originalColors[i] = renderers[i].material.color;
+        }
     }
 
     public void TakeHit()
     {
         Debug.Log($"{gameObject.name} was hit!");
 
-        if (rend == null) return;
+        if (renderers == null || renderers.Length == 0) return;
 
         if (flashRoutine != null)
             StopCoroutine(flashRoutine);
@@ -38,8 +46,12 @@ public class EnemyTarget : MonoBehaviour
 
     private IEnumerator FlashRoutine()
     {
-        rend.material.color = flashColor;
+        for (int i = 0; i < renderers.Length; i++)
+            renderers[i].material.color = flashColor;
+
         yield return new WaitForSeconds(flashDuration);
-        rend.material.color = originalColor;
+
+        for (int i = 0; i < renderers.Length; i++)
+            renderers[i].material.color = originalColors[i];
     }
 }

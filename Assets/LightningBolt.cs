@@ -42,7 +42,11 @@ public class LightningBolt : MonoBehaviour
             // whatever was hit, once the boss has a status-effect component
             // (same TODO spot as FireballProjectile's collision handler).
             Debug.Log("Lightning hit: " + hit.collider.gameObject.name);
-            EnemyTarget target = hit.collider.GetComponent<EnemyTarget>();
+
+            // GetComponentInParent, not GetComponent -- the hit collider may
+            // be on a CHILD part of a multi-mesh model (e.g. the dragon's
+            // Cube/Cube.002), while EnemyTarget sits on the root object.
+            EnemyTarget target = hit.collider.GetComponentInParent<EnemyTarget>();
             if (target != null)
                 target.TakeHit();
         }
