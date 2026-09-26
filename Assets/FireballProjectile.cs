@@ -4,6 +4,9 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class FireballProjectile : MonoBehaviour
 {
+    [Tooltip("Element this projectile deals. Shared by the Fireball (Fire) and WaterWave (Water) prefabs.")]
+    public Element element = Element.Fire;
+
     [Tooltip("How fast the fireball flies forward, in meters per second")]
     public float speed = 6f;
 
@@ -55,7 +58,7 @@ public class FireballProjectile : MonoBehaviour
         // Cube.002), while EnemyTarget sits on the root object.
         EnemyTarget target = collision.gameObject.GetComponentInParent<EnemyTarget>();
         if (target != null)
-            target.TakeHit();
+            target.TakeHit(element);
 
         Destroy(gameObject);
     }

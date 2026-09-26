@@ -1,95 +1,128 @@
+using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections;
 
-// Attach to any GameObject to make it a hittable enemy. FireballProjectile
-// and LightningBolt both look for this component (via GetComponentInParent,
-// so it can sit on a parent above the actual hit collider) and call
-// TakeHit() on it -- that's the only wiring needed on the spell side.
+// A hittable enemy. Spells call TakeHit(element); how much it hurts depends
+// on the enemy's current element (see ElementRules). The element follows
+// remaining health: top third Water, middle third Fire, bottom third
+// Lightning. SetElement() lets other code switch it directly.
 //
-// Works for both a single-mesh enemy (like the capsule) and a multi-part
-// model (like a dragon split into separate Cube/Cube.002 child meshes) --
-// it flashes every Renderer found anywhere under this object, not just one
-// on this exact GameObject.
-//
-// Now also tracks health and (optionally) drives a boss health bar UI
-// Image. If healthBarFill is left unassigned, health is still tracked and
-// logged, just nothing visual updates -- so this is safe to use on the
-// capsule too without wiring a UI for it.
-
+// Lives on the root of the enemy; spells find it with GetComponentInParent,
+// so the hit collider can be on any child part of the model.
 public class EnemyTarget : MonoBehaviour
 {
     [Header("Flash")]
-    [Tooltip("How long the hit-flash lasts, in seconds.")]
     public float flashDuration = 0.15f;
-
-    [Tooltip("Color to flash to when hit.")]
     public Color flashColor = Color.white;
 
     [Header("Health")]
-    public int maxHealth = 100;
-
-    [Tooltip("Optional -- a UI Image with Image Type = Filled. Its fill amount is kept in sync with current health. Leave empty if this enemy doesn't have a health bar.")]
+    public int maxHealth = 30;
+    [Tooltip("Optional UI Image with Image Type = Filled.")]
     public Image healthBarFill;
 
-    public int CurrentHealth { get; private set; }
-    public bool Defeated { get; private set; }
+    [Header("Damage numbers")]
+    public Color immuneColor = new Color(0.6f, 0.6f, 0.6f);
+    public Color normalColor = Color.white;
+    public Color effectiveColor = new Color(1f, 0.25f, 0.2f);
 
-    private Renderer[] renderers;
-    private Color[] originalColors;
-    private Coroutine flashRoutine;
+    public int CurrentHealth { get; private set; }
+    public Element CurrentElement { get; private set; }
+
+    // Raised whenever the element changes -- hook element-specific visuals here.
+    public event Action<Element> ElementChanged;
+
+    Renderer[] renderers;
+    Color[] originalColors;
+    Collider hitCollider;
+    Coroutine flashRoutine;
 
     void Awake()
     {
         renderers = GetComponentsInChildren<Renderer>();
         originalColors = new Color[renderers.Length];
         for (int i = 0; i < renderers.Length; i++)
-        {
             originalColors[i] = renderers[i].material.color;
-        }
+
+        hitCollider = GetComponentInChildren<Collider>();
 
         CurrentHealth = maxHealth;
+        CurrentElement = ElementForHealth(maxHealth);
         UpdateHealthBar();
     }
 
-    // damage defaults to 10 so existing calls like target.TakeHit() (no
-    // arguments) from FireballProjectile/LightningBolt keep compiling and
-    // working exactly as before -- pass an explicit amount if you want
-    // different spells to hit for different amounts.
-    public void TakeHit(int damage = 10){
-        Debug.Log($"{gameObject.name} was hit for {damage}!");
-    
-        CurrentHealth = Mathf.Max(0, CurrentHealth - damage);
-        UpdateHealthBar();
-    
-        if (renderers != null && renderers.Length > 0)
-        {
-            if (flashRoutine != null)
-                StopCoroutine(flashRoutine);
-            flashRoutine = StartCoroutine(FlashRoutine());
-        }
-    
-        if (CurrentHealth <= 0)
-        {
-            Debug.Log($"{gameObject.name} defeated -- resetting health so you can keep testing hits.");
-            CurrentHealth = maxHealth;
-            UpdateHealthBar();
-        }
-    }   
+    public void TakeHit(Element attack)
+    {
+        int damage = ElementRules.Damage(attack, CurrentElement);
+        ShowDamageNumber(damage);
+        if (damage == ElementRules.Immune) return;
 
-    private void UpdateHealthBar()
+        Flash();
+
+        Element phaseBefore = ElementForHealth(CurrentHealth);
+        CurrentHealth = Mathf.Max(0, CurrentHealth - damage);
+
+        if (CurrentHealth == 0)
+        {
+            // Demo mode: refill so testing can continue.
+            Debug.Log($"{name} defeated -- resetting health.");
+            CurrentHealth = maxHealth;
+        }
+        UpdateHealthBar();
+
+        Element phaseAfter = ElementForHealth(CurrentHealth);
+        if (phaseAfter != phaseBefore)
+            SetElement(phaseAfter);
+    }
+
+    public void SetElement(Element element)
+    {
+        if (element == CurrentElement) return;
+        CurrentElement = element;
+        Debug.Log($"{name} element -> {element}");
+        ElementChanged?.Invoke(element);
+    }
+
+    Element ElementForHealth(int health)
+    {
+        if (health * 3 > maxHealth * 2) return Element.Water;
+        if (health * 3 > maxHealth) return Element.Fire;
+        return Element.Lightning;
+    }
+
+    void ShowDamageNumber(int damage)
+    {
+        string label = damage == ElementRules.Immune ? "immune" : $"-{damage}";
+        Color color = damage == ElementRules.Immune ? immuneColor
+                    : damage == ElementRules.Effective ? effectiveColor
+                    : normalColor;
+
+        Vector3 origin = transform.position;
+        if (hitCollider != null)
+        {
+            Bounds b = hitCollider.bounds;
+            origin = b.center + Vector3.up * b.extents.y;
+        }
+        DamageNumber.Spawn(origin, label, color);
+    }
+
+    void UpdateHealthBar()
     {
         if (healthBarFill != null)
-            healthBarFill.fillAmount = maxHealth > 0 ? (float)CurrentHealth / maxHealth : 0f;
+            healthBarFill.fillAmount = (float)CurrentHealth / maxHealth;
     }
 
-    private IEnumerator FlashRoutine()
+    void Flash()
     {
-        for (int i = 0; i < renderers.Length; i++)
-            renderers[i].material.color = flashColor;
+        if (renderers.Length == 0) return;
+        if (flashRoutine != null) StopCoroutine(flashRoutine);
+        flashRoutine = StartCoroutine(FlashRoutine());
+    }
 
+    IEnumerator FlashRoutine()
+    {
+        foreach (var r in renderers) r.material.color = flashColor;
         yield return new WaitForSeconds(flashDuration);
-
         for (int i = 0; i < renderers.Length; i++)
             renderers[i].material.color = originalColors[i];
     }

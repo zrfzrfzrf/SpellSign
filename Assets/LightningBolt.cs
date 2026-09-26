@@ -48,7 +48,7 @@ public class LightningBolt : MonoBehaviour
             // Cube/Cube.002), while EnemyTarget sits on the root object.
             EnemyTarget target = hit.collider.GetComponentInParent<EnemyTarget>();
             if (target != null)
-                target.TakeHit();
+                target.TakeHit(Element.Lightning);
         }
         else
         {

@@ -156,6 +156,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: acb3ca2db404c4f0d8aab9482a981fa5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FireballProjectile
+  element: 0
   speed: 6
   lifetime: 5
   spawnGracePeriod: 0.15

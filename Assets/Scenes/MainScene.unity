@@ -18144,7 +18144,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyTarget
   flashDuration: 0.15
   flashColor: {r: 1, g: 0.6084906, b: 0.6084906, a: 1}
-  maxHealth: 100
+  maxHealth: 30
   healthBarFill: {fileID: 2029895961}
 --- !u!114 &1162589855
 MonoBehaviour:
