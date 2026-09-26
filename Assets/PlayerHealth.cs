@@ -44,17 +44,19 @@ public class PlayerHealth : MonoBehaviour
     {
         CurrentHealth = Mathf.Max(0, CurrentHealth - amount);
         UpdateHealthBar();
-
+    
         if (damageFlashImage != null)
         {
             if (flashRoutine != null)
                 StopCoroutine(flashRoutine);
             flashRoutine = StartCoroutine(FlashRoutine());
         }
-
+    
         if (CurrentHealth <= 0)
         {
-            Debug.Log("[PlayerHealth] Player defeated!");
+            Debug.Log("[PlayerHealth] Player defeated -- resetting health so you can keep testing hits.");
+            CurrentHealth = maxHealth;
+            UpdateHealthBar();
         }
     }
 

@@ -56,28 +56,26 @@ public class EnemyTarget : MonoBehaviour
     // arguments) from FireballProjectile/LightningBolt keep compiling and
     // working exactly as before -- pass an explicit amount if you want
     // different spells to hit for different amounts.
-    public void TakeHit(int damage = 10)
-    {
-        if (Defeated) return;
-
+    public void TakeHit(int damage = 10){
         Debug.Log($"{gameObject.name} was hit for {damage}!");
-
+    
         CurrentHealth = Mathf.Max(0, CurrentHealth - damage);
         UpdateHealthBar();
-
+    
         if (renderers != null && renderers.Length > 0)
         {
             if (flashRoutine != null)
                 StopCoroutine(flashRoutine);
             flashRoutine = StartCoroutine(FlashRoutine());
         }
-
+    
         if (CurrentHealth <= 0)
         {
-            Defeated = true;
-            Debug.Log($"{gameObject.name} defeated!");
+            Debug.Log($"{gameObject.name} defeated -- resetting health so you can keep testing hits.");
+            CurrentHealth = maxHealth;
+            UpdateHealthBar();
         }
-    }
+    }   
 
     private void UpdateHealthBar()
     {
