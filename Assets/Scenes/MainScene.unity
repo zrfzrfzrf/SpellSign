@@ -6230,6 +6230,7 @@ MonoBehaviour:
   palmNormalAxis: 0
   palmAwayDotThreshold: 0
   debugLogState: 1
+  aimSmoothSpeed: 20
 --- !u!1 &399042332
 GameObject:
   m_ObjectHideFlags: 0
@@ -16161,6 +16162,7 @@ MonoBehaviour:
   palmNormalAxis: 0
   palmAwayDotThreshold: 0
   debugLogState: 1
+  aimSmoothSpeed: 20
 --- !u!114 &984317020
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -18087,7 +18089,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DragonBoss
   target: {fileID: 812024471}
-  spawnDistance: 2.4
+  spawnDistance: 1.5
   raycastStartHeight: 0.5
   floorMask:
     serializedVersion: 2
@@ -18127,7 +18129,7 @@ MeshCollider:
   serializedVersion: 5
   m_Convex: 1
   m_CookingOptions: 30
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: -5495902117074765545, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
 --- !u!114 &1162589854
 MonoBehaviour:
   m_ObjectHideFlags: 0
