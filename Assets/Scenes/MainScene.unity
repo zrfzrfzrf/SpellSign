@@ -14487,6 +14487,9 @@ MonoBehaviour:
   flashColor: {r: 1, g: 0, b: 0, a: 1}
   maxHealth: 100
   healthBarFill: {fileID: 0}
+  immuneColor: {r: 0.6, g: 0.6, b: 0.6, a: 1}
+  normalColor: {r: 1, g: 1, b: 1, a: 1}
+  effectiveColor: {r: 1, g: 0.25, b: 0.2, a: 1}
 --- !u!195 &913202840
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -18064,6 +18067,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1162589855}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1162589857}
     - targetCorrespondingSourceObject: {fileID: -8391222552659086748, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2065892238}
@@ -18103,6 +18109,7 @@ MonoBehaviour:
   obstacleMask:
     serializedVersion: 2
     m_Bits: 0
+  animator: {fileID: 1162589857}
 --- !u!4 &1162589852 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
@@ -18146,6 +18153,9 @@ MonoBehaviour:
   flashColor: {r: 1, g: 0.6084906, b: 0.6084906, a: 1}
   maxHealth: 30
   healthBarFill: {fileID: 2029895961}
+  immuneColor: {r: 0.6, g: 0.6, b: 0.6, a: 1}
+  normalColor: {r: 1, g: 1, b: 1, a: 1}
+  effectiveColor: {r: 1, g: 0.25, b: 0.2, a: 1}
 --- !u!114 &1162589855
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -18196,6 +18206,28 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!95 &1162589857
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1162589849}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 5b917b389f3fdc54cbe48ac57af70a02, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &1169336877
 GameObject:
   m_ObjectHideFlags: 0

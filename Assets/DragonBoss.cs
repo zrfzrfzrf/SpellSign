@@ -48,6 +48,9 @@ public class DragonBoss : MonoBehaviour
     private bool grounded;
     private bool placed;
 
+    [SerializeField]
+    private Animator animator;
+
     void Awake()
     {
         if (muzzle == null) muzzle = transform;
@@ -151,7 +154,18 @@ public class DragonBoss : MonoBehaviour
         GameObject proj = Instantiate(projectilePrefab, muzzle.position, Quaternion.identity);
         BossProjectile bp = proj.GetComponent<BossProjectile>();
         if (bp != null) bp.Launch(target.position, obstacleMask, target);
-    }
+
+        AnimAttack();
+
+	}
+
+    void AnimAttack()
+    {
+		if (animator != null)
+		{
+			animator.SetTrigger("Attack");
+		}
+	}
 
     void OnDrawGizmosSelected()
     {
