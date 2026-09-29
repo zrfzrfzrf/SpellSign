@@ -51,13 +51,18 @@ public class DragonBoss : MonoBehaviour
     [SerializeField]
     private Animator animator;
 
+    private EnemyTarget health;
+
     void Awake()
     {
         if (muzzle == null) muzzle = transform;
+        health = GetComponent<EnemyTarget>();
     }
 
     void OnEnable()
     {
+        // Also runs on revive: give the player a moment before the first shot.
+        attackTimer = attackCooldown;
         StartCoroutine(PlaceWhenReady());
     }
 
@@ -119,6 +124,7 @@ public class DragonBoss : MonoBehaviour
     void Update()
     {
         if (!placed || target == null) return;
+        if (health != null && health.IsDead) return;
 
         if (!grounded)
         {

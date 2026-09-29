@@ -197,6 +197,10 @@ public class HandGestureRecognizer : MonoBehaviour
         }
     }
 
+    // True while this hand's finger shape matches the pose. For non-spell
+    // gestures (e.g. SummonTotem's two-finger touch) -- nothing is cast.
+    public bool IsHolding(SpellPoseDefinition pose) => pose != null && pose.Matches(fingerCurled);
+
     void UpdateFingerCurlStates()
     {
         Transform[] tips = { thumbTip, indexTip, middleTip, ringTip, pinkyTip };

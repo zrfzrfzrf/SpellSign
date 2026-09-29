@@ -8,6 +8,9 @@ using UnityEngine.UI;
 // remaining health: top third Water, middle third Fire, bottom third
 // Lightning. SetElement() lets other code switch it directly.
 //
+// At zero health the enemy dies: it stops taking hits, blinks a few times and
+// deactivates. Revive() brings it back in place at full health.
+//
 // Lives on the root of the enemy; spells find it with GetComponentInParent,
 // so the hit collider can be on any child part of the model.
 public class EnemyTarget : MonoBehaviour
@@ -15,6 +18,10 @@ public class EnemyTarget : MonoBehaviour
     [Header("Flash")]
     public float flashDuration = 0.15f;
     public Color flashColor = Color.white;
+
+    [Header("Death")]
+    public int deathBlinks = 4;
+    public float blinkInterval = 0.15f;
 
     [Header("Health")]
     public int maxHealth = 30;
@@ -31,12 +38,17 @@ public class EnemyTarget : MonoBehaviour
 
     public int CurrentHealth { get; private set; }
     public Element CurrentElement { get; private set; }
+    public bool IsDead { get; private set; }
 
     // Raised whenever the element changes -- hook element-specific visuals here.
     public event Action<Element> ElementChanged;
+    // Hooks for death/revive animations.
+    public event Action Died;
+    public event Action Revived;
 
     Renderer[] renderers;
     Color[] originalColors;
+    Collider[] colliders;
     Collider hitCollider;
     Coroutine flashRoutine;
 
@@ -47,7 +59,8 @@ public class EnemyTarget : MonoBehaviour
         for (int i = 0; i < renderers.Length; i++)
             originalColors[i] = renderers[i].material.color;
 
-        hitCollider = GetComponentInChildren<Collider>();
+        colliders = GetComponentsInChildren<Collider>();
+        hitCollider = colliders.Length > 0 ? colliders[0] : null;
 
         CurrentHealth = maxHealth;
         CurrentElement = ElementForHealth(maxHealth);
@@ -58,6 +71,8 @@ public class EnemyTarget : MonoBehaviour
     // Without it they appear on the side of the enemy facing the player.
     public void TakeHit(Element attack, Vector3? hitPoint = null)
     {
+        if (IsDead) return;
+
         int damage = ElementRules.Damage(attack, CurrentElement);
         Vector3 point = hitPoint ?? PointFacingPlayer();
 
@@ -72,18 +87,67 @@ public class EnemyTarget : MonoBehaviour
 
         Element phaseBefore = ElementForHealth(CurrentHealth);
         CurrentHealth = Mathf.Max(0, CurrentHealth - damage);
+        UpdateHealthBar();
 
         if (CurrentHealth == 0)
         {
-            // Demo mode: refill so testing can continue.
-            Debug.Log($"{name} defeated -- resetting health.");
-            CurrentHealth = maxHealth;
+            Die();
+            return;
         }
-        UpdateHealthBar();
 
         Element phaseAfter = ElementForHealth(CurrentHealth);
         if (phaseAfter != phaseBefore)
             SetElement(phaseAfter);
+    }
+
+    public void Revive()
+    {
+        if (!IsDead) return;
+
+        StopAllCoroutines(); // in case it's revived mid-blink
+        IsDead = false;
+        CurrentHealth = maxHealth;
+        UpdateHealthBar();
+        SetElement(ElementForHealth(maxHealth));
+        SetVisible(true);
+        foreach (var c in colliders) c.enabled = true;
+
+        gameObject.SetActive(true);
+        Debug.Log($"{name} revived.");
+        Revived?.Invoke();
+    }
+
+    void Die()
+    {
+        IsDead = true;
+        Debug.Log($"{name} defeated.");
+
+        // Spells pass straight through while it blinks out.
+        foreach (var c in colliders) c.enabled = false;
+
+        // A hit flash cut short by deactivation would leave the model white.
+        if (flashRoutine != null) StopCoroutine(flashRoutine);
+        RestoreColors();
+
+        Died?.Invoke();
+        StartCoroutine(BlinkOut());
+    }
+
+    IEnumerator BlinkOut()
+    {
+        for (int i = 0; i < deathBlinks; i++)
+        {
+            SetVisible(false);
+            yield return new WaitForSeconds(blinkInterval);
+            SetVisible(true);
+            yield return new WaitForSeconds(blinkInterval);
+        }
+        gameObject.SetActive(false);
+    }
+
+    void SetVisible(bool visible)
+    {
+        foreach (var r in renderers) r.enabled = visible;
     }
 
     public void SetElement(Element element)
@@ -158,6 +222,11 @@ public class EnemyTarget : MonoBehaviour
     {
         foreach (var r in renderers) r.material.color = flashColor;
         yield return new WaitForSeconds(flashDuration);
+        RestoreColors();
+    }
+
+    void RestoreColors()
+    {
         for (int i = 0; i < renderers.Length; i++)
             renderers[i].material.color = originalColors[i];
     }
