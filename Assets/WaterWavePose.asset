@@ -18,7 +18,7 @@ MonoBehaviour:
   middle: 2
   ring: 2
   pinky: 1
-  spellPrefab: {fileID: 1807841106709304783, guid: 060bb37c6134b4d6db2bb5e53cfab4ff, type: 3}
+  spellPrefab: {fileID: 1807841106709304783, guid: 546f4f08d4e6a480aa602704f8e48e50, type: 3}
   effectObject: {fileID: 0}
   poseConfirmDelay: 0.2
   castCooldown: 0.4
