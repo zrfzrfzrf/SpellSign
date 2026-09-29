@@ -25,6 +25,9 @@ public class PlayerHealth : MonoBehaviour
 
     public int CurrentHealth { get; private set; }
 
+    // Raised on every hit with the damage taken (DamageVignette listens).
+    public event System.Action<int> Damaged;
+
     private Coroutine flashRoutine;
 
     void Awake()
@@ -44,7 +47,8 @@ public class PlayerHealth : MonoBehaviour
     {
         CurrentHealth = Mathf.Max(0, CurrentHealth - amount);
         UpdateHealthBar();
-    
+        Damaged?.Invoke(amount);
+
         if (damageFlashImage != null)
         {
             if (flashRoutine != null)
