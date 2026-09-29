@@ -1,38 +1,71 @@
 using TMPro;
 using UnityEngine;
 
-// World-space damage text that bursts out of an enemy: grows from small to
-// full size while drifting up and outward, then fades. Built entirely from
-// code (uses TMP's default font), so it needs no prefab or scene setup.
+// World-space damage number that pops out of an enemy toward the player: it
+// overshoots to full size, settles, drifts up, then fades. Bold with a thick
+// dark outline, and drawn on top of everything (overlay text material), so it
+// never sinks into the enemy's model. It keeps the same size in view however
+// far away the enemy is.
+//
+// Built from code (TMP's default font); the overlay material is loaded from
+// Resources/DamageNumberOverlay (Assets/CombatFeedback/Resources).
 public class DamageNumber : MonoBehaviour
 {
-    const float Lifetime = 0.9f;
-    const float StartScale = 0.2f;
-    const float Speed = 0.8f;       // meters per second
-    const float Spread = 0.6f;      // sideways scatter relative to upward motion
-    const float FadeStart = 0.6f;   // fraction of lifetime before fading begins
-    const float FontSize = 3f;      // roughly 0.3 m tall at full scale
+    const float Lifetime = 1f;
+    const float PopTime = 0.12f;       // grow to overshoot
+    const float SettleTime = 0.1f;     // shrink back to full size
+    const float Overshoot = 1.3f;
+    const float StartScale = 0.3f;
+    const float RiseSpeed = 0.12f;     // meters per second at 1 m away
+    const float FadeStart = 0.65f;     // fraction of lifetime before fading begins
+    const float FontSize = 0.9f;       // roughly 9 cm tall at 1 m away
+    const float Scatter = 0.08f;       // sideways jitter at 1 m, so repeated hits don't stack
+
+    static Material overlayMaterial;
+    static bool overlayMaterialLoaded;
 
     TextMeshPro text;
-    Vector3 velocity;
+    float baseScale;
+    float riseSpeed;
     float age;
 
-    public static void Spawn(Vector3 position, string label, Color color)
+    // size: 1 for normal hits, bigger for hits that land on the enemy's weakness.
+    public static void Spawn(Vector3 position, string label, Color color, float size = 1f)
     {
+        Camera cam = Camera.main;
+        float distance = cam != null ? Mathf.Max(0.3f, Vector3.Distance(cam.transform.position, position)) : 1f;
+
+        if (cam != null)
+        {
+            Vector2 jitter = Random.insideUnitCircle * Scatter * distance;
+            position += cam.transform.right * jitter.x + cam.transform.up * jitter.y;
+        }
+
         var go = new GameObject("DamageNumber");
         go.transform.position = position;
-        go.transform.localScale = Vector3.one * StartScale;
 
         var number = go.AddComponent<DamageNumber>();
+        number.baseScale = distance * size;
+        number.riseSpeed = RiseSpeed * distance;
+        go.transform.localScale = Vector3.one * number.baseScale * StartScale;
+
         number.text = go.AddComponent<TextMeshPro>();
+        if (!overlayMaterialLoaded)
+        {
+            overlayMaterial = Resources.Load<Material>("DamageNumberOverlay");
+            overlayMaterialLoaded = true;
+            if (overlayMaterial == null)
+                Debug.LogWarning("[DamageNumber] Resources/DamageNumberOverlay material missing -- numbers can hide inside the enemy.");
+        }
+        if (overlayMaterial != null) number.text.fontSharedMaterial = overlayMaterial;
+
         number.text.text = label;
         number.text.color = color;
         number.text.fontSize = FontSize;
         number.text.fontStyle = FontStyles.Bold;
         number.text.alignment = TextAlignmentOptions.Center;
-
-        Vector2 side = Random.insideUnitCircle * Spread;
-        number.velocity = new Vector3(side.x, 1f, side.y).normalized * Speed;
+        number.text.textWrappingMode = TextWrappingModes.NoWrap;
+        number.FaceCamera();
     }
 
     void Update()
@@ -45,14 +78,31 @@ public class DamageNumber : MonoBehaviour
             return;
         }
 
-        transform.position += velocity * Time.deltaTime;
+        transform.position += Vector3.up * riseSpeed * Time.deltaTime;
 
-        float easeOut = 1f - (1f - t) * (1f - t);
-        transform.localScale = Vector3.one * Mathf.Lerp(StartScale, 1f, easeOut);
+        float scale;
+        if (age < PopTime)
+        {
+            float p = age / PopTime;
+            scale = Mathf.Lerp(StartScale, Overshoot, 1f - (1f - p) * (1f - p));
+        }
+        else if (age < PopTime + SettleTime)
+        {
+            scale = Mathf.Lerp(Overshoot, 1f, (age - PopTime) / SettleTime);
+        }
+        else
+        {
+            scale = 1f;
+        }
+        transform.localScale = Vector3.one * baseScale * scale;
 
         text.alpha = t < FadeStart ? 1f : 1f - (t - FadeStart) / (1f - FadeStart);
+        FaceCamera();
+    }
 
-        // TMP text reads correctly when its forward points away from the viewer.
+    // TMP text reads correctly when its forward points away from the viewer.
+    void FaceCamera()
+    {
         Camera cam = Camera.main;
         if (cam != null)
             transform.rotation = Quaternion.LookRotation(transform.position - cam.transform.position);

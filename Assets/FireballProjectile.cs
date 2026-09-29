@@ -58,7 +58,7 @@ public class FireballProjectile : MonoBehaviour
         // Cube.002), while EnemyTarget sits on the root object.
         EnemyTarget target = collision.gameObject.GetComponentInParent<EnemyTarget>();
         if (target != null)
-            target.TakeHit(element);
+            target.TakeHit(element, collision.GetContact(0).point);
 
         Destroy(gameObject);
     }
