@@ -1,0 +1,148 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &335289980371080368
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1325186410090366536}
+  - component: {fileID: 7999836557243897906}
+  - component: {fileID: 969006066784989378}
+  - component: {fileID: 9056287885061412630}
+  - component: {fileID: 9072061531170471035}
+  - component: {fileID: 761894225089216293}
+  m_Layer: 0
+  m_Name: SigilScanner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1325186410090366536
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 335289980371080368}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7999836557243897906
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 335289980371080368}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef9a7893e57c04c0db4114c70954b915, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: meta.xr.mrutilitykit::Meta.XR.PassthroughCameraAccess
+  CameraPosition: 0
+  RequestedResolution: {x: 1280, y: 960}
+  _maxFramerate: 60
+  TargetMaterial: {fileID: 0}
+  _texturePropertyName: 
+--- !u!114 &969006066784989378
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 335289980371080368}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bf614c9333f6fd14e887b6040d3ac0ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SpellSign.Sigils.LiveSigilRecognizer
+  cameraAccess: {fileID: 0}
+  resultText: {fileID: 0}
+  featureText: {fileID: 0}
+  maskPreview: {fileID: 0}
+  evaluationsPerSecond: 5
+  roiFraction: 0.6
+  analysisWidth: 280
+  framesToConfirm: 3
+  minConfidence: 0.15
+  lineElongation: 4
+  maxShapeElongation: 2.2
+  circleRadialCv: 0.17
+  triangleMinRadialCv: 0.2
+  triangleMaxRadialCv: 0.36
+  maxCentreInk: 0.2
+  minContrast: 50
+  maxDarkFraction: 0.3
+  minAreaFraction: 0.004
+  rejectBorderBlobs: 1
+  logRawResults: 1
+--- !u!114 &9056287885061412630
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 335289980371080368}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb041cf7fe6aa544da38684b9dc9dbf1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SpellSign.Sigils.SigilScanner
+  permissionTimeout: 90
+  restartCameraAfter: 3
+--- !u!114 &9072061531170471035
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 335289980371080368}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b71942921f4431a40a75418742eb9ea2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SpellSign.Sigils.SigilScanFeedback
+  distance: 1.2
+  dropBelowEyes: 0.15
+  holdTime: 1.5
+  fadeTime: 0.5
+  circleColor: {r: 0.3, g: 0.8, b: 1, a: 1}
+  triangleColor: {r: 1, g: 0.35, b: 0.2, a: 1}
+  lineColor: {r: 1, g: 0.85, b: 0.2, a: 1}
+  showScanStatus: 1
+  showScanGuide: 1
+  alwaysShowScanGuide: 0
+  scanGuideTime: 3
+  scanGuideDistance: 0.45
+  scanGuideOpacity: 0.35
+  scanSound: {fileID: 0}
+  lineMaterial: {fileID: 0}
+  showDebugReadout: 0
+--- !u!114 &761894225089216293
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 335289980371080368}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a42de07e28efc414a8603c9158dad459, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SpellSign.Sigils.SigilShield
+  radius: 0.8
+  duration: 5
+  fadeInTime: 0.25
+  fadeOutTime: 0.4
+  warnTime: 1.2
+  flickerRate: 12
+  bubbleMaterial: {fileID: 2100000, guid: ef07136b2ee1f7e409547ad5d9951813, type: 2}
