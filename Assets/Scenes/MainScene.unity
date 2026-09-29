@@ -3303,6 +3303,7 @@ GameObject:
   - component: {fileID: 221589449}
   - component: {fileID: 221589448}
   - component: {fileID: 221589447}
+  - component: {fileID: 221589454}
   m_Layer: 0
   m_Name: '[BuildingBlock] Cube'
   m_TagString: Untagged
@@ -3310,6 +3311,23 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &221589454
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 221589446}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1c8fb318be24271b324e30672ed9ec2, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::SummonTotem
+  boss: {fileID: 1162589854}
+  hands:
+  - {fileID: 397383766}
+  - {fileID: 984317019}
+  summonPose: {fileID: 11400000, guid: af27c6c3946b4ea491aae52e46e36e80, type: 2}
 --- !u!114 &221589447
 MonoBehaviour:
   m_ObjectHideFlags: 0
