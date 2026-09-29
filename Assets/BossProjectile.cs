@@ -62,6 +62,13 @@ public class BossProjectile : MonoBehaviour
 
         if (playerTarget != null)
         {
+            // The player's sigil shield stops the shot at its edge, no damage.
+            if (SpellSign.Sigils.SigilShield.Blocks(transform.position))
+            {
+                Destroy(gameObject);
+                return;
+            }
+
             float distToPlayer = Vector3.Distance(transform.position, playerTarget.position);
             if (distToPlayer <= hitRadius)
             {

@@ -22,9 +22,12 @@ public class EnemyTarget : MonoBehaviour
     public Image healthBarFill;
 
     [Header("Damage numbers")]
-    public Color immuneColor = new Color(0.6f, 0.6f, 0.6f);
     public Color normalColor = Color.white;
-    public Color effectiveColor = new Color(1f, 0.25f, 0.2f);
+    public Color effectiveColor = new Color(0.94f, 0.62f, 0.15f);
+    [Tooltip("Size of the number for hits on the enemy's weakness, relative to normal hits.")]
+    public float effectiveSize = 1.4f;
+    [Tooltip("How far in front of the hit point (toward the player) numbers appear, in meters.")]
+    public float numberLift = 0.25f;
 
     public int CurrentHealth { get; private set; }
     public Element CurrentElement { get; private set; }
@@ -51,11 +54,19 @@ public class EnemyTarget : MonoBehaviour
         UpdateHealthBar();
     }
 
-    public void TakeHit(Element attack)
+    // hitPoint: where the spell struck, for the damage number / deflect ripple.
+    // Without it they appear on the side of the enemy facing the player.
+    public void TakeHit(Element attack, Vector3? hitPoint = null)
     {
         int damage = ElementRules.Damage(attack, CurrentElement);
-        ShowDamageNumber(damage);
-        if (damage == ElementRules.Immune) return;
+        Vector3 point = hitPoint ?? PointFacingPlayer();
+
+        if (damage == ElementRules.Immune)
+        {
+            SpellSign.CombatFeedback.DeflectRipple.Spawn(point);
+            return;
+        }
+        ShowDamageNumber(damage, point);
 
         Flash();
 
@@ -90,20 +101,44 @@ public class EnemyTarget : MonoBehaviour
         return Element.Lightning;
     }
 
-    void ShowDamageNumber(int damage)
+    void ShowDamageNumber(int damage, Vector3 point)
     {
-        string label = damage == ElementRules.Immune ? "immune" : $"-{damage}";
-        Color color = damage == ElementRules.Immune ? immuneColor
-                    : damage == ElementRules.Effective ? effectiveColor
-                    : normalColor;
+        bool effective = damage == ElementRules.Effective;
+        Camera cam = Camera.main;
+        if (cam != null)
+            point += (cam.transform.position - point).normalized * numberLift;
 
-        Vector3 origin = transform.position;
-        if (hitCollider != null)
+        DamageNumber.Spawn(point, $"-{damage}", effective ? effectiveColor : normalColor,
+                           effective ? effectiveSize : 1f);
+    }
+
+    // The point on the enemy's visible bounds closest to the player's head.
+    Vector3 PointFacingPlayer()
+    {
+        Camera cam = Camera.main;
+        if (cam == null || !TryGetVisibleBounds(out Bounds b))
+            return hitCollider != null ? hitCollider.bounds.center : transform.position;
+        return b.ClosestPoint(cam.transform.position);
+    }
+
+    // World bounds of the enemy's model. Uses only the skinned (animated) parts
+    // when there are any: the dragon's teeth are separate static meshes that
+    // don't follow the skeleton and sit well away from the body.
+    public bool TryGetVisibleBounds(out Bounds bounds)
+    {
+        bounds = default;
+        bool skinnedOnly = false;
+        foreach (var r in renderers)
+            if (r is SkinnedMeshRenderer) { skinnedOnly = true; break; }
+
+        bool any = false;
+        foreach (var r in renderers)
         {
-            Bounds b = hitCollider.bounds;
-            origin = b.center + Vector3.up * b.extents.y;
+            if (skinnedOnly && !(r is SkinnedMeshRenderer)) continue;
+            if (!any) { bounds = r.bounds; any = true; }
+            else bounds.Encapsulate(r.bounds);
         }
-        DamageNumber.Spawn(origin, label, color);
+        return any;
     }
 
     void UpdateHealthBar()

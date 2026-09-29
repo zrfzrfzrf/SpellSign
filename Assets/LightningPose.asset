@@ -12,13 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a39b4107311b94f4a9f8e5375083a00e, type: 3}
   m_Name: LightningPose
   m_EditorClassIdentifier: Assembly-CSharp::SpellPoseDefinition
-  spellName: Lightning
+  spellName: LightningStrike
   thumb: 0
   index: 1
   middle: 2
   ring: 2
   pinky: 2
-  spellPrefab: {fileID: 8494084612377963767, guid: 3c6c2df21620b47348d8658ed98d3be8, type: 3}
+  spellPrefab: {fileID: 8494084612377963767, guid: ac5369a50741e4f77a34c4b083b69f4b, type: 3}
   effectObject: {fileID: 0}
   poseConfirmDelay: 0.12
   castCooldown: 0.4
