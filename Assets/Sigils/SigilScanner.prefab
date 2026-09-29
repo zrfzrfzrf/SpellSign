@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 969006066784989378}
   - component: {fileID: 9056287885061412630}
   - component: {fileID: 9072061531170471035}
+  - component: {fileID: 761894225089216293}
   m_Layer: 0
   m_Name: SigilScanner
   m_TagString: Untagged
@@ -74,9 +75,16 @@ MonoBehaviour:
   framesToConfirm: 3
   minConfidence: 0.15
   lineElongation: 4
+  maxShapeElongation: 2.2
   circleRadialCv: 0.17
+  triangleMinRadialCv: 0.2
+  triangleMaxRadialCv: 0.36
+  maxCentreInk: 0.2
+  minContrast: 50
+  maxDarkFraction: 0.3
   minAreaFraction: 0.004
   rejectBorderBlobs: 1
+  logRawResults: 1
 --- !u!114 &9056287885061412630
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -90,6 +98,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpellSign.Sigils.SigilScanner
   permissionTimeout: 90
+  restartCameraAfter: 3
 --- !u!114 &9072061531170471035
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -109,6 +118,31 @@ MonoBehaviour:
   circleColor: {r: 0.3, g: 0.8, b: 1, a: 1}
   triangleColor: {r: 1, g: 0.35, b: 0.2, a: 1}
   lineColor: {r: 1, g: 0.85, b: 0.2, a: 1}
+  showScanStatus: 1
+  showScanGuide: 1
+  alwaysShowScanGuide: 0
+  scanGuideTime: 3
+  scanGuideDistance: 0.45
+  scanGuideOpacity: 0.35
   scanSound: {fileID: 0}
   lineMaterial: {fileID: 0}
   showDebugReadout: 0
+--- !u!114 &761894225089216293
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 335289980371080368}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a42de07e28efc414a8603c9158dad459, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SpellSign.Sigils.SigilShield
+  radius: 0.8
+  duration: 5
+  fadeInTime: 0.25
+  fadeOutTime: 0.4
+  warnTime: 1.2
+  flickerRate: 12
+  bubbleMaterial: {fileID: 2100000, guid: ef07136b2ee1f7e409547ad5d9951813, type: 2}
