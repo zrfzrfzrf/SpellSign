@@ -4,8 +4,8 @@
 // get added automatically (RequireComponent) -- no Inspector wiring needed.
 //
 // It does two jobs:
-//   1. Camera startup: asks for the headset camera permission and only turns the
-//      camera on once it's granted. Ported from the spike's SigilCaptureRig, minus
+//   1. Camera startup: asks for the headset camera permission, only turns the
+//      camera on once it's granted, and restarts it if it stops delivering frames. Ported from the spike's SigilCaptureRig, minus
 //      the photo-capture tool (A button / pinch saving PNGs), which would clash
 //      with gameplay input.
 //   2. Relays recognitions as a static event, so gameplay can react without
@@ -37,6 +37,9 @@ namespace SpellSign.Sigils
 
         [Tooltip("How long to wait for the player to answer the camera permission prompt, in seconds.")]
         [SerializeField] float permissionTimeout = 90f;
+
+        [Tooltip("If the camera delivers no frames for this long, switch it off and on again, in seconds.")]
+        [SerializeField] float restartCameraAfter = 3f;
 
         public static event Action<SigilResult> Scanned;
 
@@ -91,6 +94,30 @@ namespace SpellSign.Sigils
             yield return null;
             cameraAccess.enabled = true;
             Debug.Log("[SigilScanner] camera enabled");
+
+            // Watchdog. PassthroughCameraAccess disables itself when Play() fails and
+            // never retries -- e.g. when Build And Run launches the app before the
+            // headset is on. Recognition then sits idle for the whole session.
+            float notPlayingFor = 0f;
+            while (true)
+            {
+                yield return null;
+
+                if (cameraAccess.IsPlaying)
+                {
+                    notPlayingFor = 0f;
+                    continue;
+                }
+
+                notPlayingFor += Time.unscaledDeltaTime;
+                if (notPlayingFor < restartCameraAfter) continue;
+
+                notPlayingFor = 0f;
+                Debug.LogWarning("[SigilScanner] camera delivered no frames for " + restartCameraAfter + "s, restarting it");
+                cameraAccess.enabled = false;
+                yield return null;
+                cameraAccess.enabled = true;
+            }
         }
     }
 }

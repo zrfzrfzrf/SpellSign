@@ -74,7 +74,7 @@ MonoBehaviour:
   framesToConfirm: 3
   minConfidence: 0.15
   lineElongation: 4
-  circleRadialCv: 0.14
+  circleRadialCv: 0.17
   minAreaFraction: 0.004
   rejectBorderBlobs: 1
 --- !u!114 &9056287885061412630

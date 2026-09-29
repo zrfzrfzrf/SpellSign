@@ -8,7 +8,11 @@
 //   1. Otsu threshold                -> ink mask
 //   2. connected components          -> discard border-touching and tiny blobs
 //   3. largest remaining blob        -> centroid, PCA, radial statistics
-//   4. two thresholds                -> Line / Circle / Triangle
+//   4. feature bands                 -> Line / Circle / Triangle, or None
+//
+// Every class has to be matched positively. Anything that falls between or
+// outside the bands comes out as None -- triangle is NOT the fallback, otherwise
+// every shadow, hand or chair in view reads as a triangle.
 //
 // Why these two features instead of vertex counting:
 //   A drawn shape is an OUTLINE, a thin loop of ink, not a filled region.
@@ -25,6 +29,14 @@
 //
 //   Both are rotation and scale invariant, which is what you want from a stranger
 //   drawing at an angle on a piece of paper.
+//
+// Three gates reject things that aren't a drawing at all:
+//   contrast     = light-class mean minus dark-class mean (Otsu). A view with no
+//                  real ink still gets split in two; the split is just weak.
+//   darkFraction = share of the frame on the dark side. Ink on a board is a few
+//                  percent; a room is closer to half.
+//   centreInk    = share of ink in a small disc around the centroid. A drawn
+//                  circle/triangle is hollow; a shadow or object is solid.
 
 using System;
 
@@ -48,13 +60,16 @@ namespace SpellSign.Sigils
         public float AreaFraction;
         public float CentroidX;    // normalised 0..1 within the analysed buffer
         public float CentroidY;
-        public string Reason;      // why it came out None, when it does
+        public int Contrast;       // 0..255, light-class mean minus dark-class mean
+        public float DarkFraction; // share of the buffer on the dark side of the threshold
+        public float CentreInk;    // 0..1, how filled-in the middle of the shape is
+        public string Reason;     // why it came out None, when it does
 
         public override string ToString()
         {
             return Type == SigilType.None
                 ? $"None ({Reason})"
-                : $"{Type} {Confidence:0.00}  elong {Elongation:0.00}  cv {RadialCv:0.000}  px {InkPixels}";
+                : $"{Type} {Confidence:0.00}  elong {Elongation:0.00}  cv {RadialCv:0.000}  px {InkPixels}  centre {CentreInk:0.00}";
         }
     }
 
@@ -63,7 +78,13 @@ namespace SpellSign.Sigils
         // ---- tuning ----------------------------------------------------------
         // Start here. Widen the gaps rather than chasing the last few percent.
         public float LineElongation = 4.0f;    // above this -> Line
-        public float CircleRadialCv = 0.14f;   // below this -> Circle, above -> Triangle
+        public float MaxShapeElongation = 2.2f; // circle/triangle must be below this
+        public float CircleRadialCv = 0.17f;   // below this -> Circle
+        public float TriangleMinRadialCv = 0.20f; // triangle band; the gap down to
+        public float TriangleMaxRadialCv = 0.36f; //   CircleRadialCv means "unsure"
+        public float MaxCentreInk = 0.2f;      // above this -> solid blob, not an outline
+        public int MinContrast = 50;           // below this -> no clear ink
+        public float MaxDarkFraction = 0.3f;   // above this -> not ink on a light board
         public float MinAreaFraction = 0.004f; // smaller than this -> nothing drawn
         public float MaxAreaFraction = 0.55f;  // bigger than this  -> lighting, not ink
         public bool RejectBorderBlobs = true;  // drop blobs touching the frame edge
@@ -88,7 +109,20 @@ namespace SpellSign.Sigils
 
             EnsureBuffers(len);
 
-            int threshold = OtsuThreshold(gray, len);
+            int threshold = OtsuThreshold(gray, len, out int contrast, out float darkFraction);
+            result.Contrast = contrast;
+            result.DarkFraction = darkFraction;
+
+            if (contrast < MinContrast)
+            {
+                result.Reason = "low contrast";
+                return result;
+            }
+            if (darkFraction > MaxDarkFraction)
+            {
+                result.Reason = "too much dark, no clean board";
+                return result;
+            }
 
             // --- label connected components of ink (8-connected) --------------
             Array.Clear(labels, 0, len);
@@ -214,6 +248,7 @@ namespace SpellSign.Sigils
             result.AreaFraction = (float)bestSize / len;
             result.CentroidX = (float)(cx / width);
             result.CentroidY = (float)(cy / height);
+            result.CentreInk = CentreInkFraction(best, width, height, cx, cy, 0.25 * meanR);
 
             // --- decide ---------------------------------------------------------
             if (elongation > LineElongation)
@@ -221,18 +256,53 @@ namespace SpellSign.Sigils
                 result.Type = SigilType.Line;
                 result.Confidence = Clamp01((elongation - LineElongation) / LineElongation);
             }
+            else if (elongation > MaxShapeElongation)
+                result.Reason = "between line and shape";
+            else if (result.CentreInk > MaxCentreInk)
+                result.Reason = "solid blob, not an outline";
             else if (radialCv < CircleRadialCv)
             {
                 result.Type = SigilType.Circle;
                 result.Confidence = Clamp01((CircleRadialCv - radialCv) / CircleRadialCv);
             }
-            else
+            else if (radialCv < TriangleMinRadialCv)
+                result.Reason = "between circle and triangle";
+            else if (radialCv <= TriangleMaxRadialCv)
             {
+                // Scored by distance from the circle cutoff, mirroring the circle
+                // score. Sloppy, lopsided triangles land near the top of the band
+                // and are still clearly triangles, so the top edge doesn't lower it.
                 result.Type = SigilType.Triangle;
                 result.Confidence = Clamp01((radialCv - CircleRadialCv) / CircleRadialCv);
             }
+            else
+                result.Reason = "irregular shape";
 
             return result;
+        }
+
+        // Share of the chosen blob's pixels inside a disc of the given radius
+        // around the centroid. ~0 for a hollow outline, ~1 for a solid patch.
+        float CentreInkFraction(int blob, int width, int height, double cx, double cy, double radius)
+        {
+            int r = Math.Max(1, (int)radius);
+            int x0 = Math.Max(0, (int)cx - r), x1 = Math.Min(width - 1, (int)cx + r);
+            int y0 = Math.Max(0, (int)cy - r), y1 = Math.Min(height - 1, (int)cy + r);
+            double r2 = radius * radius;
+
+            int inside = 0, ink = 0;
+            for (int y = y0; y <= y1; y++)
+            {
+                for (int x = x0; x <= x1; x++)
+                {
+                    double dx = x - cx, dy = y - cy;
+                    if (dx * dx + dy * dy > r2) continue;
+                    inside++;
+                    if (labels[y * width + x] == blob) ink++;
+                }
+            }
+
+            return inside > 0 ? (float)ink / inside : 0f;
         }
 
         static float Clamp01(float v) => v < 0f ? 0f : (v > 1f ? 1f : v);
@@ -260,7 +330,7 @@ namespace SpellSign.Sigils
             Array.Resize(ref compBorder, n);
         }
 
-        int OtsuThreshold(byte[] gray, int len)
+        int OtsuThreshold(byte[] gray, int len, out int contrast, out float darkFraction)
         {
             Array.Clear(histogram, 0, 256);
             for (int i = 0; i < len; i++) histogram[gray[i]]++;
@@ -273,6 +343,8 @@ namespace SpellSign.Sigils
             long wB = 0;
             double maxBetween = -1;
             int threshold = 128;
+            contrast = 0;
+            darkFraction = 0f;
 
             for (int t = 0; t < 256; t++)
             {
@@ -292,6 +364,8 @@ namespace SpellSign.Sigils
                 {
                     maxBetween = between;
                     threshold = t;
+                    contrast = (int)(mF - mB);
+                    darkFraction = (float)wB / total;
                 }
             }
 
