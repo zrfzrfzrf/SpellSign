@@ -44,9 +44,24 @@ namespace SpellSign.Sigils
 
         [Header("Thresholds (mirrored onto the classifier)")]
         [SerializeField] float lineElongation = 4.0f;
-        [SerializeField] float circleRadialCv = 0.14f;
+        [Tooltip("Circle and triangle must be rounder than this. Between this and Line Elongation -> nothing.")]
+        [SerializeField] float maxShapeElongation = 2.2f;
+        [SerializeField] float circleRadialCv = 0.17f;
+        [Tooltip("Triangle band. Between Circle Radial Cv and the min -> nothing; above the max -> nothing.")]
+        [SerializeField] float triangleMinRadialCv = 0.20f;
+        [SerializeField] float triangleMaxRadialCv = 0.36f;
+        [Tooltip("How filled-in the middle may be. Drawn outlines are hollow; shadows and objects are solid.")]
+        [Range(0f, 1f)][SerializeField] float maxCentreInk = 0.2f;
+        [Tooltip("Minimum brightness gap (0-255) between ink and board. Below it the view has no clear drawing.")]
+        [SerializeField] int minContrast = 50;
+        [Tooltip("Maximum share of the view that may be dark. Ink on a whiteboard is a few percent; a room is ~half.")]
+        [Range(0f, 1f)][SerializeField] float maxDarkFraction = 0.3f;
         [SerializeField] float minAreaFraction = 0.004f;
         [SerializeField] bool rejectBorderBlobs = true;
+
+        [Header("Debug")]
+        [Tooltip("Log the raw classifier result about once a second (adb logcat -s Unity), for tuning the thresholds above.")]
+        [SerializeField] bool logRawResults = true;
 
         public event Action<SigilResult> OnSigilRecognized;
 
@@ -58,6 +73,7 @@ namespace SpellSign.Sigils
         Color32[] maskPixels;
 
         float nextEvalTime;
+        float nextRawLogTime;
         SigilType candidate = SigilType.None;
         int candidateStreak;
         SigilType declared = SigilType.None;
@@ -66,7 +82,13 @@ namespace SpellSign.Sigils
         void ApplyThresholds()
         {
             classifier.LineElongation = lineElongation;
+            classifier.MaxShapeElongation = maxShapeElongation;
             classifier.CircleRadialCv = circleRadialCv;
+            classifier.TriangleMinRadialCv = triangleMinRadialCv;
+            classifier.TriangleMaxRadialCv = triangleMaxRadialCv;
+            classifier.MaxCentreInk = maxCentreInk;
+            classifier.MinContrast = minContrast;
+            classifier.MaxDarkFraction = maxDarkFraction;
             classifier.MinAreaFraction = minAreaFraction;
             classifier.RejectBorderBlobs = rejectBorderBlobs;
         }
@@ -107,6 +129,12 @@ namespace SpellSign.Sigils
 
             var result = classifier.Classify(gray, grayWidth, grayHeight);
             lastResult = result;
+
+            if (logRawResults && Time.time >= nextRawLogTime)
+            {
+                nextRawLogTime = Time.time + 1f;
+                Debug.Log($"[LiveSigil] raw {result}  contrast {result.Contrast}  dark {result.DarkFraction:0.00}");
+            }
 
             UpdateStability(result);
             UpdateUi(result);
@@ -195,7 +223,8 @@ namespace SpellSign.Sigils
                 featureText.text =
                     $"raw:    {result.Type}  {result.Confidence:0.00}\n" +
                     $"elong:  {result.Elongation:0.00}   (line > {lineElongation})\n" +
-                    $"cv:     {result.RadialCv:0.000}  (circle < {circleRadialCv})\n" +
+                    $"cv:     {result.RadialCv:0.000}  (circle < {circleRadialCv}, triangle {triangleMinRadialCv}-{triangleMaxRadialCv})\n" +
+                    $"centre: {result.CentreInk:0.00}  contrast {result.Contrast}  dark {result.DarkFraction:0.00}\n" +
                     $"ink:    {result.InkPixels} px  ({result.AreaFraction:0.000})\n" +
                     $"streak: {candidateStreak}/{framesToConfirm}\n" +
                     (string.IsNullOrEmpty(result.Reason) ? "" : "why:    " + result.Reason);
@@ -238,6 +267,9 @@ namespace SpellSign.Sigils
 
         public SigilResult LastResult => lastResult;
         public SigilType Declared => declared;
+        public SigilType Candidate => candidate;
+        public float RoiFraction => roiFraction;
+        public PassthroughCameraAccess CameraAccess => cameraAccess;
         public int CandidateStreak => candidateStreak;
         public int FramesToConfirm => framesToConfirm;
     }
