@@ -6143,7 +6143,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 397383763}
-  - component: {fileID: 397383764}
   - component: {fileID: 397383765}
   - component: {fileID: 397383766}
   m_Layer: 0
@@ -6168,37 +6167,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &397383764
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 397383761}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 738d1997ef06d4f858fb9a142cf32fc5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FistGestureDetector
-  palm: {fileID: 1729317484}
-  thumbTip: {fileID: 2057994654}
-  indexTip: {fileID: 1196055300}
-  middleTip: {fileID: 1781153005}
-  ringTip: {fileID: 301676879}
-  pinkyTip: {fileID: 177667440}
-  closeThreshold: 0.1
-  openThreshold: 0.13
-  fingersRequiredForFist: 4
-  effectObject: {fileID: 0}
-  fireballPrefab: {fileID: 1807841106709304783, guid: e26891cc11cfb45edbdb13614af6aeb5, type: 3}
-  aimSource: {fileID: 0}
-  handForwardAxis: 0
-  indexKnuckle: {fileID: 2092750117}
-  spawnOffset: 0.4
-  throwCooldown: 0.4
-  fistConfirmDelay: 0.12
-  aimPitchCorrection: 0
-  debugLogDistances: 0
 --- !u!114 &397383765
 MonoBehaviour:
   m_ObjectHideFlags: 0
