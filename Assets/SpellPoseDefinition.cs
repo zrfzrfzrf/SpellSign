@@ -57,6 +57,9 @@ public class SpellPoseDefinition : ScriptableObject
     [Tooltip("If enabled, this pose can only be confirmed while your palm is facing AWAY from your own head (not looking at your own palm). Uses the Head Reference / Palm Normal Axis settings on HandGestureRecognizer -- leave this off for poses where palm orientation shouldn't matter.")]
     public bool requirePalmFacingAway = false;
 
+    [Tooltip("If enabled, this pose can only be confirmed while your palm faces the floor -- a hand held out flat, not one hanging at your side. How far it may tilt is set by Palm Down Dot Threshold on HandGestureRecognizer.")]
+    public bool requirePalmFacingDown = false;
+
     // curled[0]=thumb, [1]=index, [2]=middle, [3]=ring, [4]=pinky
     public bool Matches(bool[] curled)
     {

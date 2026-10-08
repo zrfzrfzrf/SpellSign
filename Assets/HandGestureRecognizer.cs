@@ -67,6 +67,10 @@ public class HandGestureRecognizer : MonoBehaviour
     [Range(-1f, 1f)]
     public float palmAwayDotThreshold = 0f;
 
+    [Tooltip("Minimum dot product between the palm normal and straight down for 'facing down' to count. 1 = palm must be perfectly level; 0.3 allows about 70 degrees of tilt, so you can still aim well up or down and roll your hand, but a hand hanging at your side (palm sideways) doesn't count. Only matters for poses that enable 'Require Palm Facing Down'.")]
+    [Range(-1f, 1f)]
+    public float palmDownDotThreshold = 0.3f;
+
     [Header("Debugging")]
     [Tooltip("Logs live per-finger curl state and which pose (if any) matches, twice a second.")]
     public bool debugLogState = false;
@@ -79,6 +83,7 @@ public class HandGestureRecognizer : MonoBehaviour
     {
         public float holdTimer;
         public bool confirmed;
+        public bool castPending; // confirmed during a cooldown: cast as soon as it ends
         public float lastCastTime = -999f;
     }
     private List<PoseRuntime> poseState = new List<PoseRuntime>();
@@ -126,15 +131,19 @@ public class HandGestureRecognizer : MonoBehaviour
         UpdateAimSmoothing();
         bool handSettled = currentSettleSpeed <= settleSpeedThreshold;
 
+        Vector3 palmNormal = GetAxisDirection(palmNormalAxis);
+
         float facingDot = 0f;
         bool palmFacingAway = true; // default true so poses without the requirement (or a missing Head Reference) are never blocked
         if (headReference != null)
         {
-            Vector3 palmNormal = GetAxisDirection(palmNormalAxis);
             Vector3 toHead = (headReference.position - palm.position).normalized;
             facingDot = Vector3.Dot(palmNormal, toHead);
             palmFacingAway = facingDot <= palmAwayDotThreshold;
         }
+
+        float downDot = Vector3.Dot(palmNormal, Vector3.down);
+        bool palmFacingDown = downDot >= palmDownDotThreshold;
 
         for (int i = 0; i < poses.Count; i++)
         {
@@ -143,7 +152,8 @@ public class HandGestureRecognizer : MonoBehaviour
             var state = poseState[i];
 
             bool rawMatch = pose.Matches(fingerCurled)
-                && (!pose.requirePalmFacingAway || palmFacingAway);
+                && (!pose.requirePalmFacingAway || palmFacingAway)
+                && (!pose.requirePalmFacingDown || palmFacingDown);
 
             // Only accumulate hold time while the shape matches AND the
             // hand has settled (fingers aren't actively moving). A fast
@@ -163,7 +173,15 @@ public class HandGestureRecognizer : MonoBehaviour
             if (isConfirmed && !state.confirmed)
                 OnPoseDetected(pose, state);
             else if (!isConfirmed && state.confirmed)
+            {
+                state.castPending = false;
                 OnPoseReleased(pose);
+            }
+            else if (isConfirmed && state.castPending)
+            {
+                // Still one cast per hold -- this is the one a cooldown held back.
+                state.castPending = !CastSpell(pose, state);
+            }
 
             if (isConfirmed && pose.effectObject != null)
             {
@@ -192,7 +210,8 @@ public class HandGestureRecognizer : MonoBehaviour
                 Debug.Log($"thumb={fingerCurled[0]} index={fingerCurled[1]} middle={fingerCurled[2]} " +
                           $"ring={fingerCurled[3]} pinky={fingerCurled[4]} match={match} " +
                           $"settleSpeed={currentSettleSpeed:F2} settled={handSettled} " +
-                          $"facingDot={facingDot:F2} facingAway={palmFacingAway}");
+                          $"facingDot={facingDot:F2} facingAway={palmFacingAway} " +
+                          $"downDot={downDot:F2} facingDown={palmFacingDown}");
             }
         }
     }
@@ -277,7 +296,7 @@ public class HandGestureRecognizer : MonoBehaviour
         if (pose.effectObject != null)
             pose.effectObject.SetActive(true);
 
-        CastSpell(pose, state);
+        state.castPending = !CastSpell(pose, state);
     }
 
     void OnPoseReleased(SpellPoseDefinition pose)
@@ -288,16 +307,18 @@ public class HandGestureRecognizer : MonoBehaviour
             pose.effectObject.SetActive(false);
     }
 
-    void CastSpell(SpellPoseDefinition pose, PoseRuntime state)
+    // False only when a cooldown blocked the cast, so the caller can try again
+    // while the pose is still held instead of silently dropping it.
+    bool CastSpell(SpellPoseDefinition pose, PoseRuntime state)
     {
-        if (pose.spellPrefab == null || palm == null) return;
+        if (pose.spellPrefab == null || palm == null) return true; // nothing to cast
 
         // Global lockout first: don't let two different poses cast within
         // a hair of each other (fast transitions / tracking noise).
-        if (Time.time - lastAnyCastTime < globalCastCooldown) return;
+        if (Time.time - lastAnyCastTime < globalCastCooldown) return false;
 
         // Then this spell's own individual cooldown.
-        if (Time.time - state.lastCastTime < pose.castCooldown) return;
+        if (Time.time - state.lastCastTime < pose.castCooldown) return false;
         state.lastCastTime = Time.time;
         lastAnyCastTime = Time.time;
 
@@ -314,6 +335,7 @@ public class HandGestureRecognizer : MonoBehaviour
         Quaternion spawnRotation = Quaternion.LookRotation(direction);
 
         Instantiate(pose.spellPrefab, spawnPosition, spawnRotation);
+        return true;
     }
 
     Vector3 GetAimDirection(SpellPoseDefinition pose)
