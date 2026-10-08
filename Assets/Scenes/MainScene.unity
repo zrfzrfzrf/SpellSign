@@ -3311,23 +3311,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &221589454
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 221589446}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b1c8fb318be24271b324e30672ed9ec2, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::SummonTotem
-  boss: {fileID: 1162589854}
-  hands:
-  - {fileID: 397383766}
-  - {fileID: 984317019}
-  summonPose: {fileID: 11400000, guid: af27c6c3946b4ea491aae52e46e36e80, type: 2}
 --- !u!114 &221589447
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3490,6 +3473,32 @@ Transform:
   - {fileID: 105578713}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &221589454
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 221589446}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1c8fb318be24271b324e30672ed9ec2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SummonTotem
+  boss: {fileID: 1162589854}
+  hands:
+  - {fileID: 397383766}
+  - {fileID: 984317019}
+  summonPose: {fileID: 11400000, guid: af27c6c3946b4ea491aae52e46e36e80, type: 2}
+  chargeTime: 2
+  drainTime: 1
+  touchMargin: 0.03
+  glowColor: {r: 1, g: 1, b: 1, a: 1}
+  haloMinSize: 1
+  haloMaxSize: 2.5
+  pulseSlowRate: 1.5
+  pulseFastRate: 8
+  flashTime: 0.5
 --- !u!1 &221993281
 GameObject:
   m_ObjectHideFlags: 0
@@ -14471,6 +14480,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyTarget
   flashDuration: 0.15
   flashColor: {r: 1, g: 0, b: 0, a: 1}
+  deathBlinks: 4
+  blinkInterval: 0.15
   maxHealth: 100
   healthBarFill: {fileID: 0}
   normalColor: {r: 1, g: 1, b: 1, a: 1}
@@ -18089,13 +18100,33 @@ MonoBehaviour:
     m_Bits: 1
   animateDrop: 1
   dropSpeed: 4
-  projectilePrefab: {fileID: 5784750467092582287, guid: 34558683cf68441afbaf44022d9a444f, type: 3}
+  projectilePrefab: {fileID: 0}
   attackRange: 8
   attackCooldown: 4
   muzzle: {fileID: 1735107471}
   obstacleMask:
     serializedVersion: 2
     m_Bits: 0
+  waterAttack:
+    projectilePrefab: {fileID: 5673061328924704138, guid: edbab03c7ca4f43a6a5898ccb7c58259, type: 3}
+    shots: 3
+    shotInterval: 0.2
+    chargeTime: 0.6
+    chargeColor: {r: 0.2, g: 0.5, b: 1, a: 1}
+  fireAttack:
+    projectilePrefab: {fileID: 1735880896772351480, guid: 964dc10268f3549b18b55cc19d1104a6, type: 3}
+    shots: 1
+    shotInterval: 0.2
+    chargeTime: 0.6
+    chargeColor: {r: 1, g: 0.5, b: 0.1, a: 1}
+  lightningAttack:
+    projectilePrefab: {fileID: 8028712579394654373, guid: 614500c1e0a8545dfb2ab5dd3b8f3ec6, type: 3}
+    shots: 1
+    shotInterval: 0.2
+    chargeTime: 0.6
+    chargeColor: {r: 0.55, g: 0.95, b: 1, a: 1}
+  chargeRadius: 0.25
+  chargeParticlesPerSecond: 80
   animator: {fileID: 1162589857}
 --- !u!4 &1162589852 stripped
 Transform:
@@ -18138,6 +18169,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyTarget
   flashDuration: 0.15
   flashColor: {r: 1, g: 0.6084906, b: 0.6084906, a: 1}
+  deathBlinks: 4
+  blinkInterval: 0.15
   maxHealth: 30
   healthBarFill: {fileID: 2029895961}
   normalColor: {r: 1, g: 1, b: 1, a: 1}
