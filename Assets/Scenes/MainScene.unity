@@ -18108,7 +18108,8 @@ MonoBehaviour:
   muzzle: {fileID: 1735107471}
   obstacleMask:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 1
+  requireLineOfSight: 0
   waterAttack:
     projectilePrefab: {fileID: 5673061328924704138, guid: edbab03c7ca4f43a6a5898ccb7c58259, type: 3}
     shots: 3

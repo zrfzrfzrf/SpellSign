@@ -1,9 +1,16 @@
 using UnityEngine;
+using Meta.XR.MRUtilityKit;
 
 // Bare-bones projectile for the dragon boss. Flies toward the point it was
 // launched at and dies if it hits real-world furniture on the way (so cover
 // works both directions: your spells get blocked by furniture, and the
 // boss's shots do too).
+//
+// "Furniture" means the scanned room only -- colliders under an MRUK anchor
+// (walls, floor, furniture, the room mesh). The dragon itself and the
+// player's spells sit on the same layer but never stop a shot. Cover also
+// protects from a near miss: a shot within hitRadius of the player's head
+// does no damage while room geometry is between the two.
 //
 // Also does distance-based player-hit detection: the VR player rig has no
 // physical Collider (see PlayerController's "Real Hands" setup), so instead
@@ -29,6 +36,8 @@ public class BossProjectile : MonoBehaviour
     private Transform playerTarget;
     private bool launched = false;
 
+    static readonly RaycastHit[] hitBuffer = new RaycastHit[16];
+
     // Called by DragonBoss right after Instantiate. playerTarget is
     // optional -- pass it to get player-hit detection; leave it null and
     // this behaves exactly like before (furniture-blocked, but harmless).
@@ -50,7 +59,7 @@ public class BossProjectile : MonoBehaviour
         // Check the path just ahead for real-world furniture before
         // actually moving -- prevents tunneling through thin colliders
         // at high speed and gives you a clean "blocked by cover" moment.
-        if (Physics.Raycast(transform.position, direction, out RaycastHit hit, step, obstacleMask))
+        if (RoomRaycast(transform.position, direction, step, out RaycastHit hit))
         {
             // Hit real furniture -- stop here instead of passing through.
             transform.position = hit.point;
@@ -69,8 +78,11 @@ public class BossProjectile : MonoBehaviour
                 return;
             }
 
-            float distToPlayer = Vector3.Distance(transform.position, playerTarget.position);
-            if (distToPlayer <= hitRadius)
+            Vector3 toPlayer = playerTarget.position - transform.position;
+            float distToPlayer = toPlayer.magnitude;
+            // Behind cover the shot keeps flying instead: it stops at the
+            // wall, or hits after all once it has a clear line past the edge.
+            if (distToPlayer <= hitRadius && !RoomRaycast(transform.position, toPlayer.normalized, distToPlayer, out _))
             {
                 PlayerHealth health = playerTarget.GetComponentInParent<PlayerHealth>();
                 if (health != null)
@@ -81,5 +93,25 @@ public class BossProjectile : MonoBehaviour
                 Destroy(gameObject);
             }
         }
+    }
+
+    // Nearest scanned-room surface along the ray, skipping everything else on
+    // obstacleMask.
+    bool RoomRaycast(Vector3 origin, Vector3 dir, float distance, out RaycastHit nearest)
+    {
+        nearest = default;
+        if (obstacleMask.value == 0 || distance <= 0f) return false;
+
+        int count = Physics.RaycastNonAlloc(origin, dir, hitBuffer, distance, obstacleMask, QueryTriggerInteraction.Ignore);
+        bool found = false;
+        for (int i = 0; i < count; i++)
+        {
+            RaycastHit h = hitBuffer[i];
+            if (found && h.distance >= nearest.distance) continue;
+            if (h.collider.GetComponentInParent<MRUKAnchor>() == null) continue;
+            nearest = h;
+            found = true;
+        }
+        return found;
     }
 }
