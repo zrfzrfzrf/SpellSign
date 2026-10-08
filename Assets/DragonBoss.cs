@@ -62,6 +62,8 @@ public class DragonBoss : MonoBehaviour
     public Transform muzzle;
     [Tooltip("Layers that can block line of sight -- your RealWorldMesh colliders.")]
     public LayerMask obstacleMask;
+    [Tooltip("If true, the dragon only attacks while nothing on Obstacle Mask is between its muzzle and the player. Off = it keeps shooting at a player behind cover, and the shots stop at the cover.")]
+    public bool requireLineOfSight = false;
 
     [Header("Attack per element")]
     public ElementAttack waterAttack = new ElementAttack { chargeColor = new Color(0.2f, 0.5f, 1f) };
@@ -181,7 +183,7 @@ public class DragonBoss : MonoBehaviour
         attackTimer -= Time.deltaTime;
         float distance = Vector3.Distance(transform.position, target.position);
 
-        if (!attacking && distance <= attackRange && attackTimer <= 0f && HasLineOfSight())
+        if (!attacking && distance <= attackRange && attackTimer <= 0f && (!requireLineOfSight || HasLineOfSight()))
         {
             // Cooldown runs from the start of the charge, so attacks keep the
             // same rhythm no matter how long each one takes.
