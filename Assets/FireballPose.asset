@@ -13,14 +13,15 @@ MonoBehaviour:
   m_Name: FireballPose
   m_EditorClassIdentifier: Assembly-CSharp::SpellPoseDefinition
   spellName: Fire
-  thumb: 1
+  thumb: 0
   index: 1
   middle: 1
   ring: 1
   pinky: 1
   spellPrefab: {fileID: 3026053784855609827, guid: 8a1d6c899cf634a278c8bbbc0991ee93, type: 3}
   effectObject: {fileID: 0}
-  poseConfirmDelay: 0.2
+  poseConfirmDelay: 0.12
   castCooldown: 0.4
   aimMode: 0
-  requirePalmFacingAway: 1
+  requirePalmFacingAway: 0
+  requirePalmFacingDown: 1

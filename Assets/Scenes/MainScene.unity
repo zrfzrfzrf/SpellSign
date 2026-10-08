@@ -6221,9 +6221,10 @@ MonoBehaviour:
   aimPitchCorrection: 0
   globalCastCooldown: 0.15
   settleSpeedThreshold: 0.6
-  headReference: {fileID: 1738798233}
-  palmNormalAxis: 0
+  headReference: {fileID: 812024471}
+  palmNormalAxis: 3
   palmAwayDotThreshold: 0
+  palmDownDotThreshold: 0.3
   debugLogState: 1
   aimSmoothSpeed: 20
 --- !u!1 &399042332
@@ -16159,9 +16160,10 @@ MonoBehaviour:
   aimPitchCorrection: 0
   globalCastCooldown: 0.15
   settleSpeedThreshold: 0.6
-  headReference: {fileID: 1738798233}
-  palmNormalAxis: 0
+  headReference: {fileID: 812024471}
+  palmNormalAxis: 3
   palmAwayDotThreshold: 0
+  palmDownDotThreshold: 0.3
   debugLogState: 1
   aimSmoothSpeed: 20
 --- !u!114 &984317020
