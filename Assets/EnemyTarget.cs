@@ -15,219 +15,279 @@ using UnityEngine.UI;
 // so the hit collider can be on any child part of the model.
 public class EnemyTarget : MonoBehaviour
 {
-    [Header("Flash")]
-    public float flashDuration = 0.15f;
-    public Color flashColor = Color.white;
+	[Header("Flash")]
+	public float flashDuration = 0.15f;
+	public Color flashColor = Color.white;
 
-    [Header("Death")]
-    public int deathBlinks = 4;
-    public float blinkInterval = 0.15f;
+	[Header("Death")]
+	public int deathBlinks = 4;
+	public float blinkInterval = 0.15f;
 
-    [Header("Health")]
-    public int maxHealth = 30;
-    [Tooltip("Optional UI Image with Image Type = Filled.")]
-    public Image healthBarFill;
+	[Header("Health")]
+	public int maxHealth = 30;
+	[Tooltip("Optional UI Image with Image Type = Filled.")]
+	public Image healthBarFill;
 
-    [Header("Damage numbers")]
-    public Color normalColor = Color.white;
-    public Color effectiveColor = new Color(0.94f, 0.62f, 0.15f);
-    [Tooltip("Size of the number for hits on the enemy's weakness, relative to normal hits.")]
-    public float effectiveSize = 1.4f;
-    [Tooltip("How far in front of the hit point (toward the player) numbers appear, in meters.")]
-    public float numberLift = 0.25f;
+	[Header("Damage numbers")]
+	public Color normalColor = Color.white;
+	public Color effectiveColor = new Color(0.94f, 0.62f, 0.15f);
+	[Tooltip("Size of the number for hits on the enemy's weakness, relative to normal hits.")]
+	public float effectiveSize = 1.4f;
+	[Tooltip("How far in front of the hit point (toward the player) numbers appear, in meters.")]
+	public float numberLift = 0.25f;
 
-    public int CurrentHealth { get; private set; }
-    public Element CurrentElement { get; private set; }
-    public bool IsDead { get; private set; }
+	public int CurrentHealth { get; private set; }
 
-    // Raised whenever the element changes -- hook element-specific visuals here.
-    public event Action<Element> ElementChanged;
-    // Hooks for death/revive animations.
-    public event Action Died;
-    public event Action Revived;
+	public Element CurrentElement { get; private set;  }
 
-    Renderer[] renderers;
-    Color[] originalColors;
-    Collider[] colliders;
-    Collider hitCollider;
-    Coroutine flashRoutine;
+	public void ChangeElementVisual(Element element)
+	{
+		switch (element)
+		{
+			case Element.Fire:
+				ChangeElementColorFromIndex(0);
+				return;
 
-    void Awake()
-    {
-        renderers = GetComponentsInChildren<Renderer>();
-        originalColors = new Color[renderers.Length];
-        for (int i = 0; i < renderers.Length; i++)
-            originalColors[i] = renderers[i].material.color;
+			case Element.Lightning:
+				ChangeElementColorFromIndex(1);
+				return;
 
-        colliders = GetComponentsInChildren<Collider>();
-        hitCollider = colliders.Length > 0 ? colliders[0] : null;
+			case Element.Water:
+				ChangeElementColorFromIndex(2);
+				return;
+		}
+	}
 
-        CurrentHealth = maxHealth;
-        CurrentElement = ElementForHealth(maxHealth);
-        UpdateHealthBar();
-    }
+	[Serializable]
+	public class RendererColor
+	{
+		public Renderer[] renderers;
+		public int materialIndex = 0;
+		public Color color = Color.white;
+	}
 
-    // hitPoint: where the spell struck, for the damage number / deflect ripple.
-    // Without it they appear on the side of the enemy facing the player.
-    public void TakeHit(Element attack, Vector3? hitPoint = null)
-    {
-        if (IsDead) return;
+	[Serializable]
+	public class CreatureMode
+	{
+		public string name;
+		public RendererColor[] parts;
+	}
 
-        int damage = ElementRules.Damage(attack, CurrentElement);
-        Vector3 point = hitPoint ?? PointFacingPlayer();
 
-        if (damage == ElementRules.Immune)
-        {
-            SpellSign.CombatFeedback.DeflectRipple.Spawn(point);
-            return;
-        }
-        ShowDamageNumber(damage, point);
+	[SerializeField]
+	private CreatureMode[] dragonModeColors;
 
-        Flash();
+	void ChangeElementColorFromIndex(int elementIndex)
+	{
+		CreatureMode chosenMode = dragonModeColors[elementIndex];
 
-        Element phaseBefore = ElementForHealth(CurrentHealth);
-        CurrentHealth = Mathf.Max(0, CurrentHealth - damage);
-        UpdateHealthBar();
+		for (int i = 0; i < chosenMode.parts.Length; i++)
+		{
+			for (int j = 0; j < chosenMode.parts[i].renderers.Length; j++)
+			{
+				var mat = chosenMode.parts[i].renderers[j].materials[chosenMode.parts[i].materialIndex];
+				mat.SetColor("_BaseColor", chosenMode.parts[i].color);
+			}
+		}
+	}
+	public bool IsDead { get; private set; }
 
-        if (CurrentHealth == 0)
-        {
-            Die();
-            return;
-        }
+	// Raised whenever the element changes -- hook element-specific visuals here.
+	public event Action<Element> ElementChanged;
+	// Hooks for death/revive animations.
+	public event Action Died;
+	public event Action Revived;
 
-        Element phaseAfter = ElementForHealth(CurrentHealth);
-        if (phaseAfter != phaseBefore)
-            SetElement(phaseAfter);
-    }
+	Renderer[] renderers;
+	Color[] originalColors;
+	Collider[] colliders;
+	Collider hitCollider;
+	Coroutine flashRoutine;
 
-    public void Revive()
-    {
-        if (!IsDead) return;
+	void Awake()
+	{
+		renderers = GetComponentsInChildren<Renderer>();
+		originalColors = new Color[renderers.Length];
+		for (int i = 0; i < renderers.Length; i++)
+			originalColors[i] = renderers[i].material.color;
 
-        StopAllCoroutines(); // in case it's revived mid-blink
-        IsDead = false;
-        CurrentHealth = maxHealth;
-        UpdateHealthBar();
-        SetElement(ElementForHealth(maxHealth));
-        SetVisible(true);
-        foreach (var c in colliders) c.enabled = true;
+		colliders = GetComponentsInChildren<Collider>();
+		hitCollider = colliders.Length > 0 ? colliders[0] : null;
 
-        gameObject.SetActive(true);
-        Debug.Log($"{name} revived.");
-        Revived?.Invoke();
-    }
+		CurrentHealth = maxHealth;
+		CurrentElement = ElementForHealth(maxHealth);
+		ChangeElementVisual(ElementForHealth(maxHealth));
+		UpdateHealthBar();
+	}
 
-    void Die()
-    {
-        IsDead = true;
-        Debug.Log($"{name} defeated.");
+	// hitPoint: where the spell struck, for the damage number / deflect ripple.
+	// Without it they appear on the side of the enemy facing the player.
+	public void TakeHit(Element attack, Vector3? hitPoint = null)
+	{
+		if (IsDead) return;
 
-        // Spells pass straight through while it blinks out.
-        foreach (var c in colliders) c.enabled = false;
+		int damage = ElementRules.Damage(attack, CurrentElement);
+		Vector3 point = hitPoint ?? PointFacingPlayer();
 
-        // A hit flash cut short by deactivation would leave the model white.
-        if (flashRoutine != null) StopCoroutine(flashRoutine);
-        RestoreColors();
+		if (damage == ElementRules.Immune)
+		{
+			SpellSign.CombatFeedback.DeflectRipple.Spawn(point);
+			return;
+		}
+		ShowDamageNumber(damage, point);
 
-        Died?.Invoke();
-        StartCoroutine(BlinkOut());
-    }
+		//Flash();
 
-    IEnumerator BlinkOut()
-    {
-        for (int i = 0; i < deathBlinks; i++)
-        {
-            SetVisible(false);
-            yield return new WaitForSeconds(blinkInterval);
-            SetVisible(true);
-            yield return new WaitForSeconds(blinkInterval);
-        }
-        gameObject.SetActive(false);
-    }
+		Element phaseBefore = ElementForHealth(CurrentHealth);
+		CurrentHealth = Mathf.Max(0, CurrentHealth - damage);
+		UpdateHealthBar();
 
-    void SetVisible(bool visible)
-    {
-        foreach (var r in renderers) r.enabled = visible;
-    }
+		if (CurrentHealth == 0)
+		{
+			Die();
+			return;
+		}
 
-    public void SetElement(Element element)
-    {
-        if (element == CurrentElement) return;
-        CurrentElement = element;
-        Debug.Log($"{name} element -> {element}");
-        ElementChanged?.Invoke(element);
-    }
+		Element phaseAfter = ElementForHealth(CurrentHealth);
+		if (phaseAfter != phaseBefore)
+			SetElement(phaseAfter);
+	}
 
-    Element ElementForHealth(int health)
-    {
-        if (health * 3 > maxHealth * 2) return Element.Water;
-        if (health * 3 > maxHealth) return Element.Fire;
-        return Element.Lightning;
-    }
+	public void Revive()
+	{
+		if (!IsDead) return;
 
-    void ShowDamageNumber(int damage, Vector3 point)
-    {
-        bool effective = damage == ElementRules.Effective;
-        Camera cam = Camera.main;
-        if (cam != null)
-            point += (cam.transform.position - point).normalized * numberLift;
+		StopAllCoroutines(); // in case it's revived mid-blink
+		IsDead = false;
+		CurrentHealth = maxHealth;
+		UpdateHealthBar();
+		SetElement(ElementForHealth(maxHealth));
+		SetVisible(true);
+		foreach (var c in colliders) c.enabled = true;
 
-        DamageNumber.Spawn(point, $"-{damage}", effective ? effectiveColor : normalColor,
-                           effective ? effectiveSize : 1f);
-    }
+		gameObject.SetActive(true);
+		Debug.Log($"{name} revived.");
+		Revived?.Invoke();
+	}
 
-    // The point on the enemy's visible bounds closest to the player's head.
-    Vector3 PointFacingPlayer()
-    {
-        Camera cam = Camera.main;
-        if (cam == null || !TryGetVisibleBounds(out Bounds b))
-            return hitCollider != null ? hitCollider.bounds.center : transform.position;
-        return b.ClosestPoint(cam.transform.position);
-    }
+	void Die()
+	{
+		IsDead = true;
+		Debug.Log($"{name} defeated.");
 
-    // World bounds of the enemy's model. Uses only the skinned (animated) parts
-    // when there are any: the dragon's teeth are separate static meshes that
-    // don't follow the skeleton and sit well away from the body.
-    public bool TryGetVisibleBounds(out Bounds bounds)
-    {
-        bounds = default;
-        bool skinnedOnly = false;
-        foreach (var r in renderers)
-            if (r is SkinnedMeshRenderer) { skinnedOnly = true; break; }
+		// Spells pass straight through while it blinks out.
+		foreach (var c in colliders) c.enabled = false;
 
-        bool any = false;
-        foreach (var r in renderers)
-        {
-            if (skinnedOnly && !(r is SkinnedMeshRenderer)) continue;
-            if (!any) { bounds = r.bounds; any = true; }
-            else bounds.Encapsulate(r.bounds);
-        }
-        return any;
-    }
+		// A hit flash cut short by deactivation would leave the model white.
+		if (flashRoutine != null) StopCoroutine(flashRoutine);
+		RestoreColors();
 
-    void UpdateHealthBar()
-    {
-        if (healthBarFill != null)
-            healthBarFill.fillAmount = (float)CurrentHealth / maxHealth;
-    }
+		Died?.Invoke();
+		StartCoroutine(BlinkOut());
+	}
 
-    void Flash()
-    {
-        if (renderers.Length == 0) return;
-        if (flashRoutine != null) StopCoroutine(flashRoutine);
-        flashRoutine = StartCoroutine(FlashRoutine());
-    }
+	IEnumerator BlinkOut()
+	{
+		for (int i = 0; i < deathBlinks; i++)
+		{
+			SetVisible(false);
+			yield return new WaitForSeconds(blinkInterval);
+			SetVisible(true);
+			yield return new WaitForSeconds(blinkInterval);
+		}
+		gameObject.SetActive(false);
+	}
 
-    IEnumerator FlashRoutine()
-    {
-        foreach (var r in renderers) r.material.color = flashColor;
-        yield return new WaitForSeconds(flashDuration);
-        RestoreColors();
-    }
+	void SetVisible(bool visible)
+	{
+		foreach (var r in renderers) r.enabled = visible;
+	}
 
-    void RestoreColors()
-    {
-        for (int i = 0; i < renderers.Length; i++)
-            renderers[i].material.color = originalColors[i];
-    }
+	public void SetElement(Element element)
+	{
+		Debug.Log("SETTING?");
+
+		ChangeElementVisual(element);
+
+		if (element == CurrentElement) return;
+
+		CurrentElement = element;
+		Debug.Log($"{name} element -> {element}");
+		ElementChanged?.Invoke(element);
+	}
+
+	Element ElementForHealth(int health)
+	{
+		Debug.Log("CALLING FOR HEALTH");
+
+		if (health * 3 > maxHealth * 2) return Element.Water;
+		if (health * 3 > maxHealth) return Element.Fire;
+		return Element.Lightning;
+	}
+
+	void ShowDamageNumber(int damage, Vector3 point)
+	{
+		bool effective = damage == ElementRules.Effective;
+		Camera cam = Camera.main;
+		if (cam != null)
+			point += (cam.transform.position - point).normalized * numberLift;
+
+		DamageNumber.Spawn(point, $"-{damage}", effective ? effectiveColor : normalColor,
+						   effective ? effectiveSize : 1f);
+	}
+
+	// The point on the enemy's visible bounds closest to the player's head.
+	Vector3 PointFacingPlayer()
+	{
+		Camera cam = Camera.main;
+		if (cam == null || !TryGetVisibleBounds(out Bounds b))
+			return hitCollider != null ? hitCollider.bounds.center : transform.position;
+		return b.ClosestPoint(cam.transform.position);
+	}
+
+	// World bounds of the enemy's model. Uses only the skinned (animated) parts
+	// when there are any: the dragon's teeth are separate static meshes that
+	// don't follow the skeleton and sit well away from the body.
+	public bool TryGetVisibleBounds(out Bounds bounds)
+	{
+		bounds = default;
+		bool skinnedOnly = false;
+		foreach (var r in renderers)
+			if (r is SkinnedMeshRenderer) { skinnedOnly = true; break; }
+
+		bool any = false;
+		foreach (var r in renderers)
+		{
+			if (skinnedOnly && !(r is SkinnedMeshRenderer)) continue;
+			if (!any) { bounds = r.bounds; any = true; }
+			else bounds.Encapsulate(r.bounds);
+		}
+		return any;
+	}
+
+	void UpdateHealthBar()
+	{
+		if (healthBarFill != null)
+			healthBarFill.fillAmount = (float)CurrentHealth / maxHealth;
+	}
+
+	void Flash()
+	{
+		if (renderers.Length == 0) return;
+		if (flashRoutine != null) StopCoroutine(flashRoutine);
+		flashRoutine = StartCoroutine(FlashRoutine());
+	}
+
+	IEnumerator FlashRoutine()
+	{
+		foreach (var r in renderers) r.material.color = flashColor;
+		yield return new WaitForSeconds(flashDuration);
+		RestoreColors();
+	}
+
+	void RestoreColors()
+	{
+		for (int i = 0; i < renderers.Length; i++)
+			renderers[i].material.color = originalColors[i];
+	}
 }

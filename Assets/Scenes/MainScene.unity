@@ -3895,6 +3895,11 @@ SkinnedMeshRenderer:
     m_Center: {x: 0.008180305, y: -0.0053694975, z: -0.020344593}
     m_Extent: {x: 0.046097822, y: 0.067293465, z: 0.0557265}
   m_DirtyAABB: 0
+--- !u!137 &234195492 stripped
+SkinnedMeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 8743813690021804245, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
+  m_PrefabInstance: {fileID: 1162589848}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &234707445
 GameObject:
   m_ObjectHideFlags: 0
@@ -10079,6 +10084,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 355864524}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!137 &628042361 stripped
+SkinnedMeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -9165797768001435688, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
+  m_PrefabInstance: {fileID: 1162589848}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &642119155
 GameObject:
   m_ObjectHideFlags: 0
@@ -12777,6 +12787,11 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -1550514412580984892, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
+--- !u!137 &804608705 stripped
+SkinnedMeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 7603786706384944740, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
+  m_PrefabInstance: {fileID: 1162589848}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &807324819
 GameObject:
   m_ObjectHideFlags: 0
@@ -14489,6 +14504,7 @@ MonoBehaviour:
   effectiveColor: {r: 0.94, g: 0.62, b: 0.15, a: 1}
   effectiveSize: 1.4
   numberLift: 0.25
+  dragonModeColors: []
 --- !u!195 &913202840
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -18180,6 +18196,46 @@ MonoBehaviour:
   effectiveColor: {r: 0.94, g: 0.62, b: 0.15, a: 1}
   effectiveSize: 1.4
   numberLift: 0.25
+  dragonModeColors:
+  - name: Fire
+    parts:
+    - renderers:
+      - {fileID: 2065892240}
+      materialIndex: 0
+      color: {r: 0.5283019, g: 0, b: 0, a: 0}
+    - renderers:
+      - {fileID: 1320593002}
+      - {fileID: 804608705}
+      - {fileID: 628042361}
+      - {fileID: 234195492}
+      materialIndex: 0
+      color: {r: 1, g: 0, b: 0, a: 0}
+  - name: Lightning
+    parts:
+    - renderers:
+      - {fileID: 2065892240}
+      materialIndex: 0
+      color: {r: 0, g: 0.23082723, b: 0.6415094, a: 0}
+    - renderers:
+      - {fileID: 1320593002}
+      - {fileID: 804608705}
+      - {fileID: 628042361}
+      - {fileID: 234195492}
+      materialIndex: 0
+      color: {r: 1, g: 0.87076914, b: 0, a: 0}
+  - name: Water
+    parts:
+    - renderers:
+      - {fileID: 2065892240}
+      materialIndex: 0
+      color: {r: 0.7830189, g: 0.7830189, b: 0.7830189, a: 0}
+    - renderers:
+      - {fileID: 1320593002}
+      - {fileID: 804608705}
+      - {fileID: 628042361}
+      - {fileID: 234195492}
+      materialIndex: 0
+      color: {r: 0, g: 0.7563188, b: 1, a: 0}
 --- !u!114 &1162589855
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -20793,6 +20849,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1148182575}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!137 &1320593002 stripped
+SkinnedMeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -1526964690268444965, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
+  m_PrefabInstance: {fileID: 1162589848}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1322736911
 GameObject:
   m_ObjectHideFlags: 0
@@ -34363,6 +34424,11 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -5495902117074765545, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
+--- !u!137 &2065892240 stripped
+SkinnedMeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 8417361359673230750, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
+  m_PrefabInstance: {fileID: 1162589848}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &2069274074
 GameObject:
   m_ObjectHideFlags: 0
