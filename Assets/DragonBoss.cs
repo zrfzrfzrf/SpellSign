@@ -23,9 +23,14 @@ using Meta.XR.MRUtilityKit;
 //      empty falls back to Projectile Prefab.
 //
 // Each attack is a random Attack Type (Normal / Charge / Super, picked by
-// weight), fired with the current element's projectile. Before most attacks,
+// weight), fired with the current element's projectile. Before an attack,
 // particles in the element's color are drawn into the muzzle, so the player
 // can see the shot coming.
+//
+// The animation is the clock: every Attack Type names the moment in its
+// animation when the mouth spits (Fire In State + Fire Time). The shot leaves
+// on that moment and the particles are timed backward from it, so they finish
+// gathering just as it leaves.
 public class DragonBoss : MonoBehaviour
 {
     [System.Serializable]
@@ -64,10 +69,12 @@ public class DragonBoss : MonoBehaviour
         public string animatorTrigger = "Attack";
         [Tooltip("Hold the rest after the attack until the animation has played all the way back to Idle. For attacks that chain several animations, like the flying Super.")]
         public bool waitForAnimation = false;
-        [Tooltip("Animator state to wait for before the shot leaves (its exact name in the Animator window). Empty = shoot right after the charge-up.")]
+        [Tooltip("Animator state the shot leaves in (its exact name in the Animator window). Empty = Fire Time counts from the trigger instead.")]
         public string fireInState = "";
-        [Tooltip("Seconds after that state starts before the shot leaves, to line it up with the animation.")]
-        public float fireDelay = 0f;
+        [Tooltip("Seconds into that state's animation when the mouth spits and the shot leaves. The charge-up particles finish gathering at this moment.")]
+        public float fireTime = 0f;
+        [Tooltip("For attacks that chain animations: the state that plays in full right before Fire In State. Lets a charge-up longer than Fire Time begin during it. Empty = the trigger leads straight into Fire In State.")]
+        public string leadInState = "";
     }
 
     [Header("Who to shoot at")]
@@ -99,13 +106,18 @@ public class DragonBoss : MonoBehaviour
     [Header("Attack types")]
     public AttackType[] attackTypes =
     {
-        new AttackType { name = "Normal", weight = 0.6f, cooldownAfter = 2f },
+        // Fire Times are where the head's lunge peaks in each clip of "dragon boss.fbx".
+        new AttackType { name = "Normal", weight = 0.6f, cooldownAfter = 2f,
+                         fireInState = "attack", fireTime = 0.2f },
         new AttackType { name = "Charge", weight = 0.25f, chargeTimeScale = 3f, chargeEffectScale = 2f,
-                         shots = 1, projectileScale = 2f, damageScale = 2f, cooldownAfter = 2f },
-        new AttackType { name = "Super", weight = 0.15f, chargeTimeScale = 0f,
+                         shots = 1, projectileScale = 2f, damageScale = 2f, cooldownAfter = 2f,
+                         animatorTrigger = "ChargeAttack",
+                         fireInState = "metarig|Charge Attack", fireTime = 1.2f },
+        new AttackType { name = "Super", weight = 0.15f, chargeTimeScale = 7f, chargeEffectScale = 3f,
                          shots = 1, projectileScale = 3f, damageScale = 3f, cooldownAfter = 1f,
                          animatorTrigger = "SuperAttack", waitForAnimation = true,
-                         fireInState = "metarig|Fly Superattack", fireDelay = 0.3f },
+                         fireInState = "metarig|Fly Superattack", fireTime = 3f,
+                         leadInState = "metarig|Fly Idle" },
     };
 
     [Header("Attack per element")]
@@ -269,19 +281,38 @@ public class DragonBoss : MonoBehaviour
         float chargeTime = attack.chargeTime * type.chargeTimeScale;
         Debug.Log($"[DragonBoss] {type.name} attack");
 
-        AnimAttack(type);
-        StartCharge(attack, type, chargeTime);
+        // A charge-up longer than the animation's wind-up starts first, with the
+        // dragon still in Idle, so both end on the spit. A chained attack fits it
+        // into its lead-in state instead.
+        bool chained = !string.IsNullOrEmpty(type.leadInState);
+        float hold = chained ? 0f : Mathf.Max(0f, chargeTime - type.fireTime);
 
-        bool emitting = true;
-        for (float t = 0f; t < chargeTime; t += Time.deltaTime)
+        bool triggered = false;
+        bool charging = false;
+        bool emitting = false;
+        for (float t = 0f; t < AnimationTimeout && !IsDead(); t += Time.deltaTime)
         {
-            if (IsDead()) break;
+            if (!triggered && t >= hold)
+            {
+                AnimAttack(type);
+                triggered = true;
+            }
+
+            float untilFire = triggered ? SecondsUntilFire(type, t - hold) : hold - t + type.fireTime;
+            if (untilFire <= 0f) break;
+
+            if (!charging && chargeTime > 0f && untilFire <= chargeTime)
+            {
+                StartCharge(attack, type, untilFire);
+                charging = true;
+                emitting = charge != null;
+            }
 
             if (charge != null)
             {
                 charge.transform.position = muzzle.position;
                 // Stop early enough that the last particles arrive as it fires.
-                if (emitting && t >= chargeTime - ChargeParticleLife)
+                if (emitting && untilFire <= ChargeParticleLife)
                 {
                     charge.Stop(true, ParticleSystemStopBehavior.StopEmitting);
                     emitting = false;
@@ -290,12 +321,6 @@ public class DragonBoss : MonoBehaviour
             yield return null;
         }
         StopCharge();
-
-        if (!string.IsNullOrEmpty(type.fireInState))
-        {
-            yield return StartCoroutine(WaitForAnimatorState(type.fireInState));
-            yield return new WaitForSeconds(type.fireDelay);
-        }
 
         int shots = type.shots > 0 ? type.shots : Mathf.Max(1, attack.shots);
         for (int i = 0; i < shots && !IsDead(); i++)
@@ -312,19 +337,38 @@ public class DragonBoss : MonoBehaviour
         attacking = false;
     }
 
-    // Waits until the animator is playing the named state (a trigger needs a
-    // moment, and the blend into the state, before it gets there). Gives up
-    // after AnimationTimeout so a misspelled name can't freeze the dragon.
-    IEnumerator WaitForAnimatorState(string stateName)
+    // Seconds until the shot should leave, read from the animator so it stays
+    // on the spit frame however long the blends and earlier states took.
+    // Infinity while a chained attack hasn't reached its lead-in state yet.
+    // Without an animator or a state name it's a plain timer from the trigger.
+    float SecondsUntilFire(AttackType type, float sinceTrigger)
     {
-        if (animator == null) yield break;
+        if (animator == null || string.IsNullOrEmpty(type.fireInState))
+            return type.fireTime - sinceTrigger;
 
-        for (float t = 0f; t < AnimationTimeout && !IsDead(); t += Time.deltaTime)
+        // A state being blended into is the "next" one; its clip is already running.
+        AnimatorStateInfo current = animator.GetCurrentAnimatorStateInfo(0);
+        AnimatorStateInfo next = animator.GetNextAnimatorStateInfo(0);
+        bool blending = animator.IsInTransition(0);
+
+        if (blending && next.IsName(type.fireInState)) return type.fireTime - ClipTime(next);
+        if (current.IsName(type.fireInState)) return type.fireTime - ClipTime(current);
+
+        if (!string.IsNullOrEmpty(type.leadInState))
         {
-            if (animator.GetCurrentAnimatorStateInfo(0).IsName(stateName)) yield break;
-            yield return null;
+            if (blending && next.IsName(type.leadInState)) return ClipTimeLeft(next) + type.fireTime;
+            if (current.IsName(type.leadInState)) return ClipTimeLeft(current) + type.fireTime;
+            return float.PositiveInfinity;
         }
+
+        // The trigger takes a frame to start the state (and a misspelled state
+        // name never does): count from the trigger until then.
+        return type.fireTime - sinceTrigger;
     }
+
+    static float ClipTime(AnimatorStateInfo state) => state.normalizedTime * state.length;
+
+    static float ClipTimeLeft(AnimatorStateInfo state) => Mathf.Max(0f, 1f - state.normalizedTime) * state.length;
 
     // Waits for the animator to leave Idle (a trigger takes a frame or two to
     // start something), then to come all the way back to it.

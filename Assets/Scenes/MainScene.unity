@@ -18281,6 +18281,10 @@ MonoBehaviour:
     damageScale: 1
     cooldownAfter: 2
     animatorTrigger: Attack
+    waitForAnimation: 0
+    fireInState: attack
+    fireTime: 0.2
+    leadInState: 
   - name: Charge
     weight: 0.25
     chargeTimeScale: 3
@@ -18290,10 +18294,14 @@ MonoBehaviour:
     damageScale: 2
     cooldownAfter: 2
     animatorTrigger: ChargeAttack
+    waitForAnimation: 0
+    fireInState: metarig|Charge Attack
+    fireTime: 1.2
+    leadInState: 
   - name: Super
     weight: 0.15
-    chargeTimeScale: 0
-    chargeEffectScale: 1
+    chargeTimeScale: 7
+    chargeEffectScale: 3
     shots: 1
     projectileScale: 3
     damageScale: 3
@@ -18301,7 +18309,8 @@ MonoBehaviour:
     animatorTrigger: SuperAttack
     waitForAnimation: 1
     fireInState: metarig|Fly Superattack
-    fireDelay: 0.3
+    fireTime: 3
+    leadInState: metarig|Fly Idle
   waterAttack:
     projectilePrefab: {fileID: 5673061328924704138, guid: edbab03c7ca4f43a6a5898ccb7c58259, type: 3}
     shots: 3
