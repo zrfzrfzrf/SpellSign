@@ -18256,7 +18256,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DragonBoss
   target: {fileID: 812024471}
-  spawnDistance: 1.5
+  spawnDistance: 2.2
   raycastStartHeight: 0.5
   floorMask:
     serializedVersion: 2
@@ -18285,6 +18285,9 @@ MonoBehaviour:
     fireInState: attack
     fireTime: 0.2
     leadInState: 
+    breathDuration: 0
+    breathDamage: 35
+    breathAnimatorSpeed: 1
   - name: Charge
     weight: 0.25
     chargeTimeScale: 3
@@ -18298,19 +18301,25 @@ MonoBehaviour:
     fireInState: metarig|Charge Attack
     fireTime: 1.2
     leadInState: 
-  - name: Super
+    breathDuration: 0
+    breathDamage: 35
+    breathAnimatorSpeed: 1
+  - name: Breath
     weight: 0.15
-    chargeTimeScale: 7
+    chargeTimeScale: 5
     chargeEffectScale: 3
     shots: 1
-    projectileScale: 3
-    damageScale: 3
+    projectileScale: 1
+    damageScale: 1
     cooldownAfter: 1
     animatorTrigger: SuperAttack
     waitForAnimation: 1
     fireInState: metarig|Fly Superattack
     fireTime: 3
     leadInState: metarig|Fly Idle
+    breathDuration: 4
+    breathDamage: 35
+    breathAnimatorSpeed: 0.12
   waterAttack:
     projectilePrefab: {fileID: 5673061328924704138, guid: edbab03c7ca4f43a6a5898ccb7c58259, type: 3}
     shots: 3
@@ -18328,9 +18337,14 @@ MonoBehaviour:
     shots: 1
     shotInterval: 0.2
     chargeTime: 0.6
-    chargeColor: {r: 0.55, g: 0.95, b: 1, a: 1}
+    chargeColor: {r: 1, g: 0.9, b: 0.2, a: 1}
   chargeRadius: 0.25
   chargeParticlesPerSecond: 80
+  breathTicksPerSecond: 2
+  breathConeAngle: 14
+  breathParticlesPerSecond: 200
+  floorFireRadius: 2.5
+  floorFireParticlesPerSecond: 120
   animator: {fileID: 1162589857}
 --- !u!4 &1162589851 stripped
 Transform:

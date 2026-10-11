@@ -27,6 +27,11 @@ using Meta.XR.MRUtilityKit;
 // particles in the element's color are drawn into the muzzle, so the player
 // can see the shot coming.
 //
+// The Breath attack is the one that can't be dodged: the dragon flies up and
+// breathes its element down over the player and the floor around them. Cover
+// doesn't help and neither does moving; only the sigil shield (SigilShield)
+// stops it. It does its damage in ticks for as long as the breath lasts.
+//
 // The animation is the clock: every Attack Type names the moment in its
 // animation when the mouth spits (Fire In State + Fire Time). The shot leaves
 // on that moment and the particles are timed backward from it, so they finish
@@ -75,6 +80,14 @@ public class DragonBoss : MonoBehaviour
         public float fireTime = 0f;
         [Tooltip("For attacks that chain animations: the state that plays in full right before Fire In State. Lets a charge-up longer than Fire Time begin during it. Empty = the trigger leads straight into Fire In State.")]
         public string leadInState = "";
+
+        [Header("Breath (instead of projectiles)")]
+        [Tooltip("Seconds the dragon breathes its element over the player. 0 = this attack fires projectiles. Keep it a little shorter than the sigil shield lasts, so a shield raised just before the breath covers all of it.")]
+        public float breathDuration = 0f;
+        [Tooltip("Total damage over the whole breath to a player with no sigil shield up, dealt in ticks.")]
+        public int breathDamage = 35;
+        [Tooltip("Animator speed while breathing. Below 1 stretches the pose the dragon is in at Fire Time over the breath; 1 = the animation carries on as normal.")]
+        public float breathAnimatorSpeed = 1f;
     }
 
     [Header("Who to shoot at")]
@@ -113,24 +126,38 @@ public class DragonBoss : MonoBehaviour
                          shots = 1, projectileScale = 2f, damageScale = 2f, cooldownAfter = 2f,
                          animatorTrigger = "ChargeAttack",
                          fireInState = "metarig|Charge Attack", fireTime = 1.2f },
-        new AttackType { name = "Super", weight = 0.15f, chargeTimeScale = 7f, chargeEffectScale = 3f,
-                         shots = 1, projectileScale = 3f, damageScale = 3f, cooldownAfter = 1f,
+        new AttackType { name = "Breath", weight = 0.15f, chargeTimeScale = 5f, chargeEffectScale = 3f,
+                         cooldownAfter = 1f,
                          animatorTrigger = "SuperAttack", waitForAnimation = true,
                          fireInState = "metarig|Fly Superattack", fireTime = 3f,
-                         leadInState = "metarig|Fly Idle" },
+                         leadInState = "metarig|Fly Idle",
+                         breathDuration = 4f, breathDamage = 35, breathAnimatorSpeed = 0.12f },
     };
 
     [Header("Attack per element")]
     public ElementAttack waterAttack = new ElementAttack { chargeColor = new Color(0.2f, 0.5f, 1f) };
     public ElementAttack fireAttack = new ElementAttack { chargeColor = new Color(1f, 0.5f, 0.1f) };
-    public ElementAttack lightningAttack = new ElementAttack { shots = 3, chargeColor = new Color(0.55f, 0.95f, 1f) };
+    public ElementAttack lightningAttack = new ElementAttack { shots = 3, chargeColor = new Color(1f, 0.9f, 0.2f) };
 
     [Header("Charge-up effect")]
     [Tooltip("How far from the muzzle the gathering particles start, in meters.")]
     public float chargeRadius = 0.25f;
     public float chargeParticlesPerSecond = 80f;
 
+    [Header("Breath effect")]
+    [Tooltip("How often the breath hurts a player with no shield up.")]
+    public float breathTicksPerSecond = 2f;
+    [Tooltip("How wide the cone of breath opens from the mouth, in degrees from its center line.")]
+    public float breathConeAngle = 14f;
+    public float breathParticlesPerSecond = 200f;
+    [Tooltip("How far around the player the breath washes over the floor, in meters.")]
+    public float floorFireRadius = 2.5f;
+    public float floorFireParticlesPerSecond = 120f;
+
     const float ChargeParticleLife = 0.35f; // seconds a particle takes to reach the muzzle
+    const float BreathParticleLife = 0.6f;  // seconds a particle takes to get from the mouth to the player
+    const float BreathOvershoot = 1f;       // meters the breath carries on past the player's head
+    const float ShieldClearance = 0.2f;     // meters short of the shield's edge the breath stops, so it doesn't poke inside
     const string IdleState = "idle";        // the Animator's resting state
     const float AnimationTimeout = 30f;     // longest wait on an animation before giving up
     const float ParticleSizeMin = 0.012f;
@@ -140,6 +167,10 @@ public class DragonBoss : MonoBehaviour
     private bool attacking;
     private ParticleSystem charge;
     private Material chargeMaterial;
+    private ParticleSystem breath;
+    private ParticleSystem floorFire;
+    private Material breathMaterial;
+    private Texture2D breathNoise;
     private float targetFloorY;
     private bool grounded;
     private bool placed;
@@ -178,16 +209,18 @@ public class DragonBoss : MonoBehaviour
         if (MRUK.Instance != null)
             MRUK.Instance.SceneLoadedEvent.RemoveListener(PlaceInFrontOfPlayer);
         StopCharge();
+        StopBreath();
     }
 
-    // Stops attacking right now: cancels an attack in progress (the charge-up and
-    // any shots still to come) and keeps a new one from starting. GameFlow uses
+    // Stops attacking right now: cancels an attack in progress (the charge-up,
+    // the breath and any shots still to come) and keeps a new one from starting. GameFlow uses
     // it while the end menu is up.
     public void StopAttacking()
     {
         StopAllCoroutines();
         attacking = false;
         StopCharge();
+        StopBreath();
         enabled = false;
     }
 
@@ -206,6 +239,10 @@ public class DragonBoss : MonoBehaviour
     {
         if (charge != null) Destroy(charge.gameObject);
         if (chargeMaterial != null) Destroy(chargeMaterial);
+        if (breath != null) Destroy(breath.gameObject);
+        if (floorFire != null) Destroy(floorFire.gameObject);
+        if (breathMaterial != null) Destroy(breathMaterial);
+        if (breathNoise != null) Destroy(breathNoise);
     }
 
     void PlaceInFrontOfPlayer()
@@ -275,7 +312,8 @@ public class DragonBoss : MonoBehaviour
     {
         attacking = true;
 
-        // Picked once: a phase change mid-charge doesn't swap the shot.
+        // The type and its timing are picked once. The element isn't: an attack
+        // can outlast a phase, and its colors and shot then follow the dragon's.
         AttackType type = PickAttackType();
         ElementAttack attack = CurrentAttack();
         float chargeTime = attack.chargeTime * type.chargeTimeScale;
@@ -301,6 +339,16 @@ public class DragonBoss : MonoBehaviour
             float untilFire = triggered ? SecondsUntilFire(type, t - hold) : hold - t + type.fireTime;
             if (untilFire <= 0f) break;
 
+            if (CurrentAttack() != attack)
+            {
+                attack = CurrentAttack();
+                if (charging && charge != null)
+                {
+                    ParticleSystem.MainModule chargeMain = charge.main;
+                    chargeMain.startColor = attack.chargeColor;
+                }
+            }
+
             if (!charging && chargeTime > 0f && untilFire <= chargeTime)
             {
                 StartCharge(attack, type, untilFire);
@@ -322,12 +370,19 @@ public class DragonBoss : MonoBehaviour
         }
         StopCharge();
 
-        int shots = type.shots > 0 ? type.shots : Mathf.Max(1, attack.shots);
-        for (int i = 0; i < shots && !IsDead(); i++)
+        if (type.breathDuration > 0f)
         {
-            Shoot(attack, type);
-            if (i < shots - 1)
-                yield return new WaitForSeconds(attack.shotInterval);
+            yield return StartCoroutine(BreathRoutine(attack, type));
+        }
+        else
+        {
+            int shots = type.shots > 0 ? type.shots : Mathf.Max(1, attack.shots);
+            for (int i = 0; i < shots && !IsDead(); i++)
+            {
+                Shoot(CurrentAttack(), type);
+                if (i < shots - 1)
+                    yield return new WaitForSeconds(attack.shotInterval);
+            }
         }
 
         if (type.waitForAnimation)
@@ -335,6 +390,47 @@ public class DragonBoss : MonoBehaviour
 
         attackTimer = type.cooldownAfter;
         attacking = false;
+    }
+
+    // The breath: for Breath Duration the element pours from the mouth over the
+    // player. No aiming and no cover check -- a player without the sigil shield
+    // up takes a tick of damage every time, wherever they stand.
+    IEnumerator BreathRoutine(ElementAttack attack, AttackType type)
+    {
+        if (IsDead()) yield break;
+
+        PlayerHealth player = target.GetComponentInParent<PlayerHealth>();
+        if (player == null)
+            Debug.LogWarning("[DragonBoss] No PlayerHealth found on/above the target -- the breath does no damage.");
+
+        int ticks = Mathf.Max(1, Mathf.RoundToInt(type.breathDuration * breathTicksPerSecond));
+        float tickInterval = type.breathDuration / ticks;
+        int ticksDone = 0;
+
+        StartBreath(attack);
+        if (animator != null) animator.speed = type.breathAnimatorSpeed;
+
+        for (float t = 0f; t < type.breathDuration && !IsDead(); t += Time.deltaTime)
+        {
+            if (CurrentAttack() != attack)
+            {
+                attack = CurrentAttack();
+                SetBreathColor(attack.chargeColor);
+            }
+            AimBreath();
+
+            // Each tick lands in the middle of its share of the breath.
+            while (ticksDone < ticks && t >= (ticksDone + 0.5f) * tickInterval)
+            {
+                ticksDone++;
+                // Split so the ticks add up to exactly Breath Damage.
+                int damage = type.breathDamage * ticksDone / ticks - type.breathDamage * (ticksDone - 1) / ticks;
+                if (player != null && !SpellSign.Sigils.SigilShield.IsUp)
+                    player.TakeDamage(damage);
+            }
+            yield return null;
+        }
+        StopBreath();
     }
 
     // Seconds until the shot should leave, read from the animator so it stays
@@ -483,6 +579,205 @@ public class DragonBoss : MonoBehaviour
     {
         if (charge != null)
             charge.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+    }
+
+    void StartBreath(ElementAttack attack)
+    {
+        if (breath == null && !BuildBreath()) return;
+
+        SetBreathColor(attack.chargeColor);
+
+        ParticleSystem.EmissionModule breathEmission = breath.emission;
+        breathEmission.rateOverTime = breathParticlesPerSecond;
+        ParticleSystem.ShapeModule cone = breath.shape;
+        cone.angle = breathConeAngle;
+
+        ParticleSystem.EmissionModule floorEmission = floorFire.emission;
+        floorEmission.rateOverTime = floorFireParticlesPerSecond;
+        ParticleSystem.ShapeModule circle = floorFire.shape;
+        circle.radius = floorFireRadius;
+
+        AimBreath();
+        breath.Play();
+        floorFire.Play();
+    }
+
+    // The same color throughout a flame's life. Alpha is its strength, which
+    // the BreathFlame shader turns into how much of it has burnt away.
+    void SetBreathColor(Color color)
+    {
+        if (breath == null) return;
+
+        var gradient = new Gradient();
+        gradient.SetKeys(
+            new[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) },
+            new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.08f), new GradientAlphaKey(1f, 0.4f),
+                    new GradientAlphaKey(0f, 1f) });
+
+        foreach (ParticleSystem system in new[] { breath, floorFire })
+        {
+            ParticleSystem.ColorOverLifetimeModule fade = system.colorOverLifetime;
+            fade.color = gradient;
+        }
+    }
+
+    // Keeps the cone pointed from the mouth at the player's head and the floor
+    // fire under their feet, every frame of the breath.
+    void AimBreath()
+    {
+        if (breath == null) return;
+
+        Vector3 toTarget = target.position - muzzle.position;
+        float distance = toTarget.magnitude;
+        Quaternion facing = distance > 0.01f ? Quaternion.LookRotation(toTarget) : muzzle.rotation;
+        breath.transform.SetPositionAndRotation(muzzle.position, facing);
+
+        // The breath carries on past the player to the floor behind them; with
+        // the shield up it stops at the bubble instead.
+        float reach = SpellSign.Sigils.SigilShield.IsUp
+            ? Mathf.Max(0.1f, distance - SpellSign.Sigils.SigilShield.Radius - ShieldClearance)
+            : distance + BreathOvershoot;
+        ParticleSystem.MainModule main = breath.main;
+        main.startSpeed = reach / BreathParticleLife;
+
+        floorFire.transform.position = new Vector3(target.position.x, targetFloorY, target.position.z);
+    }
+
+    // Lets the breath already in the air fade out instead of cutting it off.
+    void StopBreath()
+    {
+        if (breath != null) breath.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+        if (floorFire != null) floorFire.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+        if (animator != null) animator.speed = 1f;
+    }
+
+    // Two particle systems sharing one material: the cone from the mouth, and
+    // the fire it spreads over the floor around the player. Built from code and
+    // kept out of the dragon's hierarchy, like the charge-up effect.
+    bool BuildBreath()
+    {
+        Shader shader = Resources.Load<Shader>("BreathFlame");
+        if (shader == null)
+        {
+            Debug.LogWarning("[DragonBoss] Resources/BreathFlame shader missing -- the breath can't be shown.");
+            return false;
+        }
+
+        breathNoise = NewNoiseTexture();
+        breathMaterial = new Material(shader);
+        breathMaterial.SetTexture("_NoiseTex", breathNoise);
+
+        // The cone: big overlapping puffs that tumble as they fly, so the
+        // stream looks like one body of flame.
+        breath = NewBreathSystem(name + " Breath");
+        ParticleSystem.MainModule main = breath.main;
+        main.startLifetime = BreathParticleLife;
+        main.startSize = new ParticleSystem.MinMaxCurve(0.6f, 1f);
+        main.startRotation = new ParticleSystem.MinMaxCurve(0f, 2f * Mathf.PI);
+        ParticleSystem.ShapeModule cone = breath.shape;
+        cone.shapeType = ParticleSystemShapeType.Cone;
+        cone.radius = 0.03f;
+        // Small at the mouth, full size by the time it reaches the player.
+        ParticleSystem.SizeOverLifetimeModule grow = breath.sizeOverLifetime;
+        grow.enabled = true;
+        grow.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.15f, 1f, 1f));
+        ParticleSystem.RotationOverLifetimeModule tumble = breath.rotationOverLifetime;
+        tumble.enabled = true;
+        tumble.z = new ParticleSystem.MinMaxCurve(-1f, 1f); // radians per second
+
+        // The floor: tall flames standing upright on the ground.
+        floorFire = NewBreathSystem(name + " Floor Fire");
+        // The circle shape lies in the system's XY plane: tip it flat onto the floor.
+        floorFire.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        ParticleSystem.MainModule floorMain = floorFire.main;
+        floorMain.startLifetime = new ParticleSystem.MinMaxCurve(0.6f, 1f);
+        floorMain.startSize3D = true;
+        floorMain.startSizeX = new ParticleSystem.MinMaxCurve(0.5f, 0.8f);
+        floorMain.startSizeY = new ParticleSystem.MinMaxCurve(0.8f, 1.4f);
+        floorMain.startSizeZ = 1f;
+        floorMain.startSpeed = 0f;
+        ParticleSystem.ShapeModule circle = floorFire.shape;
+        circle.shapeType = ParticleSystemShapeType.Circle;
+        // Flames lick upward from wherever they start.
+        ParticleSystem.VelocityOverLifetimeModule rise = floorFire.velocityOverLifetime;
+        rise.enabled = true;
+        rise.space = ParticleSystemSimulationSpace.World;
+        // All three axes have to be the same kind of curve.
+        rise.x = new ParticleSystem.MinMaxCurve(0f, 0f);
+        rise.y = new ParticleSystem.MinMaxCurve(0.3f, 0.7f);
+        rise.z = new ParticleSystem.MinMaxCurve(0f, 0f);
+
+        var floorRenderer = floorFire.GetComponent<ParticleSystemRenderer>();
+        floorRenderer.renderMode = ParticleSystemRenderMode.VerticalBillboard;
+        floorRenderer.pivot = new Vector3(0f, 0.5f, 0f); // stand on the floor instead of straddling it
+        return true;
+    }
+
+    // Tiling cloudy noise for the BreathFlame shader: two layers of smoothed
+    // random values, the second twice as fine.
+    static Texture2D NewNoiseTexture()
+    {
+        const int size = 64;
+        const int cells = 8;
+        var random = new System.Random(7);
+        var coarse = new float[cells * cells];
+        var fine = new float[cells * cells * 4];
+        for (int i = 0; i < coarse.Length; i++) coarse[i] = (float)random.NextDouble();
+        for (int i = 0; i < fine.Length; i++) fine[i] = (float)random.NextDouble();
+
+        var pixels = new Color32[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float u = (float)x / size, v = (float)y / size;
+                float value = 0.65f * SampleTiled(coarse, cells, u, v) + 0.35f * SampleTiled(fine, cells * 2, u, v);
+                byte b = (byte)Mathf.RoundToInt(Mathf.Clamp01(value) * 255f);
+                pixels[y * size + x] = new Color32(b, b, b, 255);
+            }
+        }
+
+        // Linear: the values are amounts, not colors.
+        var texture = new Texture2D(size, size, TextureFormat.RGBA32, false, true);
+        texture.wrapMode = TextureWrapMode.Repeat;
+        texture.filterMode = FilterMode.Bilinear;
+        texture.SetPixels32(pixels);
+        texture.Apply(false, true);
+        return texture;
+    }
+
+    // Smoothly blended value from a square grid that wraps at the edges.
+    static float SampleTiled(float[] grid, int cells, float u, float v)
+    {
+        float gx = u * cells, gy = v * cells;
+        int x0 = Mathf.FloorToInt(gx) % cells, y0 = Mathf.FloorToInt(gy) % cells;
+        int x1 = (x0 + 1) % cells, y1 = (y0 + 1) % cells;
+        float tx = Mathf.SmoothStep(0f, 1f, gx - Mathf.Floor(gx));
+        float ty = Mathf.SmoothStep(0f, 1f, gy - Mathf.Floor(gy));
+        return Mathf.Lerp(Mathf.Lerp(grid[y0 * cells + x0], grid[y0 * cells + x1], tx),
+                          Mathf.Lerp(grid[y1 * cells + x0], grid[y1 * cells + x1], tx), ty);
+    }
+
+    ParticleSystem NewBreathSystem(string systemName)
+    {
+        var go = new GameObject(systemName);
+        ParticleSystem system = go.AddComponent<ParticleSystem>();
+        system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+        ParticleSystem.MainModule main = system.main;
+        main.playOnAwake = false;
+        main.loop = true;
+        // World, so breath already in the air keeps its path when the head moves.
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+
+        ParticleSystem.ColorOverLifetimeModule fade = system.colorOverLifetime;
+        fade.enabled = true;
+
+        var renderer = go.GetComponent<ParticleSystemRenderer>();
+        renderer.sharedMaterial = breathMaterial;
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        renderer.receiveShadows = false;
+        return system;
     }
 
     // Built from code (Sprites/Default, like DeflectRipple) and kept out of the

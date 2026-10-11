@@ -40,6 +40,9 @@ namespace SpellSign.Sigils
 
         public static bool IsUp => active != null && active.remaining > 0f;
 
+        // Bubble radius in meters, for effects that should stop at its edge.
+        public static float Radius => active != null ? active.radius : 0f;
+
         // True while the shield is up and `point` has reached its edge. The shot
         // should then be destroyed without doing damage.
         public static bool Blocks(Vector3 point)
