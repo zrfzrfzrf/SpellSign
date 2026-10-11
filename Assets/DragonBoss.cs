@@ -43,7 +43,7 @@ public class DragonBoss : MonoBehaviour
     {
         [Tooltip("What this attack fires -- anything with BossProjectile on it. Empty = Projectile Prefab.")]
         public GameObject projectilePrefab;
-        [Tooltip("Shots per attack. Each one is aimed at where the player is when it leaves the mouth.")]
+        [Tooltip("Shots per attack. All of them are aimed at where the player is when the first one leaves the mouth, so stepping aside dodges the whole burst.")]
         public int shots = 1;
         [Tooltip("Seconds between shots when Shots is more than 1.")]
         public float shotInterval = 0.2f;
@@ -377,9 +377,11 @@ public class DragonBoss : MonoBehaviour
         else
         {
             int shots = type.shots > 0 ? type.shots : Mathf.Max(1, attack.shots);
+            // Aimed once for the whole burst: later shots don't follow a player who has moved.
+            Vector3 aimPoint = target.position;
             for (int i = 0; i < shots && !IsDead(); i++)
             {
-                Shoot(CurrentAttack(), type);
+                Shoot(CurrentAttack(), type, aimPoint);
                 if (i < shots - 1)
                     yield return new WaitForSeconds(attack.shotInterval);
             }
@@ -519,13 +521,13 @@ public class DragonBoss : MonoBehaviour
         return true;
     }
 
-    void Shoot(ElementAttack attack, AttackType type)
+    void Shoot(ElementAttack attack, AttackType type, Vector3 aimPoint)
     {
         GameObject prefab = attack.projectilePrefab != null ? attack.projectilePrefab : projectilePrefab;
         if (prefab == null || target == null) return;
 
         // Facing its flight direction, for projectiles that aren't round.
-        Vector3 toTarget = target.position - muzzle.position;
+        Vector3 toTarget = aimPoint - muzzle.position;
         Quaternion facing = toTarget.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(toTarget) : Quaternion.identity;
 
         GameObject proj = Instantiate(prefab, muzzle.position, facing);
@@ -536,7 +538,7 @@ public class DragonBoss : MonoBehaviour
         {
             bp.damageAmount = Mathf.RoundToInt(bp.damageAmount * type.damageScale);
             bp.hitRadius *= type.projectileScale; // a bigger shot connects from further away
-            bp.Launch(target.position, obstacleMask, target);
+            bp.Launch(aimPoint, obstacleMask, target);
         }
     }
 
