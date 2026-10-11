@@ -22,8 +22,10 @@ using Meta.XR.MRUtilityKit;
 //      prefab. The attack follows EnemyTarget's current element; one left
 //      empty falls back to Projectile Prefab.
 //
-// Before each attack, particles in the attack's color are drawn into the
-// muzzle for Charge Time seconds, so the player can see the shot coming.
+// Each attack is a random Attack Type (Normal / Charge / Super, picked by
+// weight), fired with the current element's projectile. Before most attacks,
+// particles in the element's color are drawn into the muzzle, so the player
+// can see the shot coming.
 public class DragonBoss : MonoBehaviour
 {
     [System.Serializable]
@@ -38,6 +40,34 @@ public class DragonBoss : MonoBehaviour
         [Tooltip("How long particles gather at the mouth before the first shot, in seconds.")]
         public float chargeTime = 0.6f;
         public Color chargeColor = Color.white;
+    }
+
+    // How an attack plays out, on top of the element's projectile and colors.
+    [System.Serializable]
+    public class AttackType
+    {
+        public string name = "Normal";
+        [Tooltip("Relative chance of being picked. The weights don't have to add up to 1.")]
+        public float weight = 1f;
+        [Tooltip("Multiplies the element's Charge Time. 0 = no charge-up at all.")]
+        public float chargeTimeScale = 1f;
+        [Tooltip("Multiplies the charge-up particles' spread, size and amount.")]
+        public float chargeEffectScale = 1f;
+        [Tooltip("Shots per attack. 0 = whatever the element says.")]
+        public int shots = 0;
+        [Tooltip("Multiplies the projectile's size and the distance at which it hits the player.")]
+        public float projectileScale = 1f;
+        public float damageScale = 1f;
+        [Tooltip("Rest after the attack ends, before the next one can start, in seconds.")]
+        public float cooldownAfter = 2f;
+        [Tooltip("Animator trigger fired when the attack starts.")]
+        public string animatorTrigger = "Attack";
+        [Tooltip("Hold the rest after the attack until the animation has played all the way back to Idle. For attacks that chain several animations, like the flying Super.")]
+        public bool waitForAnimation = false;
+        [Tooltip("Animator state to wait for before the shot leaves (its exact name in the Animator window). Empty = shoot right after the charge-up.")]
+        public string fireInState = "";
+        [Tooltip("Seconds after that state starts before the shot leaves, to line it up with the animation.")]
+        public float fireDelay = 0f;
     }
 
     [Header("Who to shoot at")]
@@ -57,13 +87,26 @@ public class DragonBoss : MonoBehaviour
     [Header("Attack")]
     public GameObject projectilePrefab;
     public float attackRange = 8f;
-    public float attackCooldown = 2f;
+    [Tooltip("Seconds after landing (or being revived) before the first attack, so the player can get their bearings.")]
+    public float openingDelay = 2f;
     [Tooltip("Where projectiles spawn from. If left empty, uses this transform.")]
     public Transform muzzle;
     [Tooltip("Layers that can block line of sight -- your RealWorldMesh colliders.")]
     public LayerMask obstacleMask;
     [Tooltip("If true, the dragon only attacks while nothing on Obstacle Mask is between its muzzle and the player. Off = it keeps shooting at a player behind cover, and the shots stop at the cover.")]
     public bool requireLineOfSight = false;
+
+    [Header("Attack types")]
+    public AttackType[] attackTypes =
+    {
+        new AttackType { name = "Normal", weight = 0.6f, cooldownAfter = 2f },
+        new AttackType { name = "Charge", weight = 0.25f, chargeTimeScale = 3f, chargeEffectScale = 2f,
+                         shots = 1, projectileScale = 2f, damageScale = 2f, cooldownAfter = 2f },
+        new AttackType { name = "Super", weight = 0.15f, chargeTimeScale = 0f,
+                         shots = 1, projectileScale = 3f, damageScale = 3f, cooldownAfter = 1f,
+                         animatorTrigger = "SuperAttack", waitForAnimation = true,
+                         fireInState = "metarig|Fly Superattack", fireDelay = 0.3f },
+    };
 
     [Header("Attack per element")]
     public ElementAttack waterAttack = new ElementAttack { chargeColor = new Color(0.2f, 0.5f, 1f) };
@@ -76,6 +119,10 @@ public class DragonBoss : MonoBehaviour
     public float chargeParticlesPerSecond = 80f;
 
     const float ChargeParticleLife = 0.35f; // seconds a particle takes to reach the muzzle
+    const string IdleState = "idle";        // the Animator's resting state
+    const float AnimationTimeout = 30f;     // longest wait on an animation before giving up
+    const float ParticleSizeMin = 0.012f;
+    const float ParticleSizeMax = 0.028f;
 
     private float attackTimer;
     private bool attacking;
@@ -99,7 +146,7 @@ public class DragonBoss : MonoBehaviour
     void OnEnable()
     {
         // Also runs on revive: give the player a moment before the first shot.
-        attackTimer = attackCooldown;
+        attackTimer = openingDelay;
         attacking = false; // an attack cut short by deactivation never cleared it
         StartCoroutine(PlaceWhenReady());
     }
@@ -202,16 +249,14 @@ public class DragonBoss : MonoBehaviour
             return; // don't attack mid-drop
         }
 
+        // The rest after an attack counts down only once the attack is over.
+        if (attacking) return;
+
         attackTimer -= Time.deltaTime;
         float distance = Vector3.Distance(transform.position, target.position);
 
-        if (!attacking && distance <= attackRange && attackTimer <= 0f && (!requireLineOfSight || HasLineOfSight()))
-        {
-            // Cooldown runs from the start of the charge, so attacks keep the
-            // same rhythm no matter how long each one takes.
-            attackTimer = attackCooldown;
+        if (distance <= attackRange && attackTimer <= 0f && (!requireLineOfSight || HasLineOfSight()))
             StartCoroutine(AttackRoutine());
-        }
     }
 
     IEnumerator AttackRoutine()
@@ -219,12 +264,16 @@ public class DragonBoss : MonoBehaviour
         attacking = true;
 
         // Picked once: a phase change mid-charge doesn't swap the shot.
+        AttackType type = PickAttackType();
         ElementAttack attack = CurrentAttack();
-        AnimAttack();
-        StartCharge(attack);
+        float chargeTime = attack.chargeTime * type.chargeTimeScale;
+        Debug.Log($"[DragonBoss] {type.name} attack");
+
+        AnimAttack(type);
+        StartCharge(attack, type, chargeTime);
 
         bool emitting = true;
-        for (float t = 0f; t < attack.chargeTime; t += Time.deltaTime)
+        for (float t = 0f; t < chargeTime; t += Time.deltaTime)
         {
             if (IsDead()) break;
 
@@ -232,7 +281,7 @@ public class DragonBoss : MonoBehaviour
             {
                 charge.transform.position = muzzle.position;
                 // Stop early enough that the last particles arrive as it fires.
-                if (emitting && t >= attack.chargeTime - ChargeParticleLife)
+                if (emitting && t >= chargeTime - ChargeParticleLife)
                 {
                     charge.Stop(true, ParticleSystemStopBehavior.StopEmitting);
                     emitting = false;
@@ -242,18 +291,72 @@ public class DragonBoss : MonoBehaviour
         }
         StopCharge();
 
-        int shots = Mathf.Max(1, attack.shots);
+        if (!string.IsNullOrEmpty(type.fireInState))
+        {
+            yield return StartCoroutine(WaitForAnimatorState(type.fireInState));
+            yield return new WaitForSeconds(type.fireDelay);
+        }
+
+        int shots = type.shots > 0 ? type.shots : Mathf.Max(1, attack.shots);
         for (int i = 0; i < shots && !IsDead(); i++)
         {
-            Shoot(attack);
+            Shoot(attack, type);
             if (i < shots - 1)
                 yield return new WaitForSeconds(attack.shotInterval);
         }
 
+        if (type.waitForAnimation)
+            yield return StartCoroutine(WaitForAnimationToFinish());
+
+        attackTimer = type.cooldownAfter;
         attacking = false;
     }
 
+    // Waits until the animator is playing the named state (a trigger needs a
+    // moment, and the blend into the state, before it gets there). Gives up
+    // after AnimationTimeout so a misspelled name can't freeze the dragon.
+    IEnumerator WaitForAnimatorState(string stateName)
+    {
+        if (animator == null) yield break;
+
+        for (float t = 0f; t < AnimationTimeout && !IsDead(); t += Time.deltaTime)
+        {
+            if (animator.GetCurrentAnimatorStateInfo(0).IsName(stateName)) yield break;
+            yield return null;
+        }
+    }
+
+    // Waits for the animator to leave Idle (a trigger takes a frame or two to
+    // start something), then to come all the way back to it.
+    IEnumerator WaitForAnimationToFinish()
+    {
+        if (animator == null) yield break;
+
+        for (float t = 0f; t < 0.5f && !AnimatorBusy(); t += Time.deltaTime)
+            yield return null;
+        for (float t = 0f; t < AnimationTimeout && AnimatorBusy() && !IsDead(); t += Time.deltaTime)
+            yield return null;
+    }
+
+    bool AnimatorBusy() => animator.IsInTransition(0) || !animator.GetCurrentAnimatorStateInfo(0).IsName(IdleState);
+
     bool IsDead() => health != null && health.IsDead;
+
+    // Weighted random: a type with twice the weight comes up twice as often.
+    AttackType PickAttackType()
+    {
+        float total = 0f;
+        foreach (AttackType type in attackTypes)
+            total += Mathf.Max(0f, type.weight);
+
+        float roll = Random.value * total;
+        foreach (AttackType type in attackTypes)
+        {
+            roll -= Mathf.Max(0f, type.weight);
+            if (roll < 0f) return type;
+        }
+        return attackTypes[0]; // only if the roll landed exactly on the total
+    }
 
     ElementAttack CurrentAttack()
     {
@@ -276,7 +379,7 @@ public class DragonBoss : MonoBehaviour
         return true;
     }
 
-    void Shoot(ElementAttack attack)
+    void Shoot(ElementAttack attack, AttackType type)
     {
         GameObject prefab = attack.projectilePrefab != null ? attack.projectilePrefab : projectilePrefab;
         if (prefab == null || target == null) return;
@@ -286,25 +389,32 @@ public class DragonBoss : MonoBehaviour
         Quaternion facing = toTarget.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(toTarget) : Quaternion.identity;
 
         GameObject proj = Instantiate(prefab, muzzle.position, facing);
-        BossProjectile bp = proj.GetComponent<BossProjectile>();
-        if (bp != null) bp.Launch(target.position, obstacleMask, target);
-    }
+        proj.transform.localScale *= type.projectileScale;
 
-    void AnimAttack()
-    {
-        if (animator != null)
+        BossProjectile bp = proj.GetComponent<BossProjectile>();
+        if (bp != null)
         {
-            animator.SetTrigger("Attack");
+            bp.damageAmount = Mathf.RoundToInt(bp.damageAmount * type.damageScale);
+            bp.hitRadius *= type.projectileScale; // a bigger shot connects from further away
+            bp.Launch(target.position, obstacleMask, target);
         }
     }
 
-    void StartCharge(ElementAttack attack)
+    void AnimAttack(AttackType type)
     {
-        if (attack.chargeTime <= 0f) return;
+        if (animator != null)
+            animator.SetTrigger(type.animatorTrigger);
+    }
+
+    void StartCharge(ElementAttack attack, AttackType type, float chargeTime)
+    {
+        if (chargeTime <= 0f) return;
         if (charge == null && !BuildCharge()) return;
 
         // Never longer than the charge itself, or nothing would reach the muzzle.
-        float life = Mathf.Min(ChargeParticleLife, attack.chargeTime);
+        float life = Mathf.Min(ChargeParticleLife, chargeTime);
+        float scale = type.chargeEffectScale;
+        float radius = chargeRadius * scale;
 
         charge.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         charge.transform.position = muzzle.position;
@@ -312,14 +422,15 @@ public class DragonBoss : MonoBehaviour
         ParticleSystem.MainModule main = charge.main;
         main.startColor = attack.chargeColor;
         main.startLifetime = life;
+        main.startSize = new ParticleSystem.MinMaxCurve(ParticleSizeMin * scale, ParticleSizeMax * scale);
         // Negative speed: particles start on the sphere and fly inward.
-        main.startSpeed = -chargeRadius / life;
+        main.startSpeed = -radius / life;
 
         ParticleSystem.EmissionModule emission = charge.emission;
-        emission.rateOverTime = chargeParticlesPerSecond;
+        emission.rateOverTime = chargeParticlesPerSecond * scale;
 
         ParticleSystem.ShapeModule shape = charge.shape;
-        shape.radius = chargeRadius;
+        shape.radius = radius;
 
         charge.Play();
     }
@@ -349,7 +460,7 @@ public class DragonBoss : MonoBehaviour
         ParticleSystem.MainModule main = charge.main;
         main.playOnAwake = false;
         main.loop = true;
-        main.startSize = new ParticleSystem.MinMaxCurve(0.012f, 0.028f);
+        main.startSize = new ParticleSystem.MinMaxCurve(ParticleSizeMin, ParticleSizeMax);
         // Local, so the particles stay around the muzzle if the dragon is moved.
         main.simulationSpace = ParticleSystemSimulationSpace.Local;
 
