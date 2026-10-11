@@ -11,7 +11,8 @@ using Meta.XR.MRUtilityKit;
 //
 // Setup:
 //   1. Drag your dragon model into the scene.
-//   2. Add a Collider on it (roughly matching its size) and this script.
+//   2. Add this script. The hit colliders go on the dragon's bones, so they
+//      follow the animation (see Tools > Dragon in the editor).
 //   3. Set Target to your CenterEyeAnchor.
 //   4. Set Floor Mask and Obstacle Mask to whatever layer your
 //      RealWorldMesh colliders are on (Default, most likely).
@@ -23,7 +24,6 @@ using Meta.XR.MRUtilityKit;
 //
 // Before each attack, particles in the attack's color are drawn into the
 // muzzle for Charge Time seconds, so the player can see the shot coming.
-[RequireComponent(typeof(Collider))]
 public class DragonBoss : MonoBehaviour
 {
     [System.Serializable]

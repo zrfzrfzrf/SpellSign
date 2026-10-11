@@ -111,7 +111,7 @@ public class EnemyTarget : MonoBehaviour
 		for (int i = 0; i < renderers.Length; i++)
 			originalColors[i] = renderers[i].material.color;
 
-		colliders = GetComponentsInChildren<Collider>();
+		colliders = Array.FindAll(GetComponentsInChildren<Collider>(), c => c.enabled); // ones you disabled stay off after a revive
 		hitCollider = colliders.Length > 0 ? colliders[0] : null;
 
 		CurrentHealth = maxHealth;
