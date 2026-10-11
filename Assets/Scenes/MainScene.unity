@@ -13038,7 +13038,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerHealth
   maxHealth: 100
-  invincible: 0
+  invincible: 1
   damageFlashImage: {fileID: 0}
   healthBarFill: {fileID: 625071868}
   flashAlpha: 0.35
@@ -18281,6 +18281,9 @@ MonoBehaviour:
     damageScale: 1
     cooldownAfter: 2
     animatorTrigger: Attack
+    waitForAnimation: 0
+    fireInState: 
+    fireDelay: 0
   - name: Charge
     weight: 0.25
     chargeTimeScale: 3
@@ -18290,6 +18293,9 @@ MonoBehaviour:
     damageScale: 2
     cooldownAfter: 2
     animatorTrigger: ChargeAttack
+    waitForAnimation: 0
+    fireInState: 
+    fireDelay: 0
   - name: Super
     weight: 0.15
     chargeTimeScale: 0
@@ -18298,7 +18304,7 @@ MonoBehaviour:
     projectileScale: 3
     damageScale: 3
     cooldownAfter: 1
-    animatorTrigger: SuperAttack
+    animatorTrigger: Attack
     waitForAnimation: 1
     fireInState: metarig|Fly Superattack
     fireDelay: 0.3
