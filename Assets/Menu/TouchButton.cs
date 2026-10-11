@@ -1,0 +1,118 @@
+using System;
+using TMPro;
+using UnityEngine;
+
+// A button you press by touching it with a fingertip and holding there for
+// PressTime -- no pinch, no ray. A bar along the bottom fills while you hold
+// and drains when you let go; one touch is one press, so keeping your finger
+// on it doesn't repeat.
+//
+// Built from code (see Create), so the menu needs no prefabs or scene setup.
+[RequireComponent(typeof(BoxCollider))]
+public class TouchButton : MonoBehaviour
+{
+    const float PressTime = 0.4f;      // seconds of continuous touch to press
+    const float DrainSpeed = 3f;       // charge lost per second when not touched
+    const float TouchMargin = 0.015f;  // meters from the surface that still counts
+    const float BarHeight = 0.012f;
+
+    static readonly Color DisabledPlate = new Color(0.25f, 0.25f, 0.28f, 0.9f);
+    static readonly Color DisabledLabel = new Color(0.55f, 0.55f, 0.58f);
+    static readonly Color BarColor = new Color(1f, 1f, 1f, 0.9f);
+
+    public event Action Pressed;
+
+    // Grey and ignores touches while false.
+    public bool Interactable { get; set; } = true;
+    // The fingertips that can press it (both index fingers).
+    public Transform[] Fingertips { get; set; } = new Transform[0];
+
+    Collider body;
+    Material plateMaterial;
+    Material barMaterial;
+    Transform bar;
+    TextMeshPro label;
+    Vector2 size;
+    Color plateColor;
+    Color labelColor;
+    float progress;           // 0..1
+    bool waitForRelease;      // pressed already; finger must leave before the next press
+
+    public static TouchButton Create(Transform parent, string text, Vector2 size, Color color, int sortingOrder)
+    {
+        var go = new GameObject(text + " Button");
+        go.transform.SetParent(parent, false);
+
+        var box = go.AddComponent<BoxCollider>();
+        box.size = new Vector3(size.x, size.y, 0.04f);
+
+        var button = go.AddComponent<TouchButton>();
+        button.body = box;
+        button.size = size;
+        button.plateColor = color;
+        button.labelColor = Color.white;
+
+        button.plateMaterial = MenuParts.NewMaterial(color);
+        MenuParts.NewQuad(go.transform, "Plate", button.plateMaterial, size, Vector3.zero, sortingOrder);
+
+        button.barMaterial = MenuParts.NewMaterial(BarColor);
+        button.bar = MenuParts.NewQuad(go.transform, "Progress", button.barMaterial,
+                                       new Vector2(0.0001f, BarHeight), Vector3.zero, sortingOrder + 1);
+
+        button.label = MenuParts.NewText(go.transform, text, 0.35f, Color.white, size,
+                                         new Vector3(0f, 0.004f, -0.004f), sortingOrder + 2);
+        return button;
+    }
+
+    void Update()
+    {
+        bool touched = IsTouched();
+        if (!touched) waitForRelease = false;
+
+        bool charging = Interactable && touched && !waitForRelease;
+        progress += charging ? Time.deltaTime / PressTime : -Time.deltaTime * DrainSpeed;
+        progress = Mathf.Clamp01(progress);
+
+        if (charging && progress >= 1f)
+        {
+            waitForRelease = true;
+            Pressed?.Invoke();
+        }
+
+        UpdateVisuals();
+    }
+
+    bool IsTouched()
+    {
+        foreach (Transform tip in Fingertips)
+        {
+            if (tip == null) continue;
+            Vector3 p = tip.position;
+            if ((body.ClosestPoint(p) - p).sqrMagnitude <= TouchMargin * TouchMargin)
+                return true;
+        }
+        return false;
+    }
+
+    void UpdateVisuals()
+    {
+        if (plateMaterial == null) return; // no unlit shader (MenuParts logged it); buttons still work
+
+        plateMaterial.color = Interactable
+            ? Color.Lerp(plateColor, Color.white, progress * 0.35f)
+            : DisabledPlate;
+        label.color = Interactable ? labelColor : DisabledLabel;
+
+        // The bar grows from the left edge along the bottom of the button.
+        float width = Mathf.Max(0.0001f, size.x * progress);
+        bar.localScale = new Vector3(width, BarHeight, 1f);
+        bar.localPosition = new Vector3(-size.x * 0.5f + width * 0.5f,
+                                        -size.y * 0.5f + BarHeight * 0.5f, -0.002f);
+    }
+
+    void OnDestroy()
+    {
+        if (plateMaterial != null) Destroy(plateMaterial);
+        if (barMaterial != null) Destroy(barMaterial);
+    }
+}

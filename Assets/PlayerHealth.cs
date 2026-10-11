@@ -12,6 +12,10 @@ public class PlayerHealth : MonoBehaviour
 {
     [Header("Health")]
     public int maxHealth = 100;
+    [Tooltip("If selected, player's HP will recover to full when it reaches 0(for developer testing).")]
+    public bool invincible = false;
+    public int CurrentHealth { get; private set; }
+    public bool IsDead { get; private set; }
 
     [Header("UI")]
     [Tooltip("Full-screen red Image, alpha 0 at rest. Flashes on damage.")]
@@ -23,10 +27,29 @@ public class PlayerHealth : MonoBehaviour
     public float flashAlpha = 0.35f;
     public float flashFadeTime = 0.3f;
 
-    public int CurrentHealth { get; private set; }
-
     // Raised on every hit with the damage taken (DamageVignette listens).
     public event System.Action<int> Damaged;
+
+    // Raised once when health reaches zero, unless invincible is on.
+    public event System.Action Died;
+
+    // Back to full health and alive; GameFlow calls this on restart.
+    public void Restore()
+    {
+        CurrentHealth = maxHealth;
+        IsDead = false;
+        UpdateHealthBar();
+
+        if (flashRoutine != null)
+            StopCoroutine(flashRoutine);
+
+        if (damageFlashImage != null)
+        {
+            Color c = damageFlashImage.color;
+            c.a = 0f;
+            damageFlashImage.color = c;
+        }
+    }
 
     private Coroutine flashRoutine;
 
@@ -45,6 +68,7 @@ public class PlayerHealth : MonoBehaviour
 
     public void TakeDamage(int amount)
     {
+        if (IsDead) return;
         CurrentHealth = Mathf.Max(0, CurrentHealth - amount);
         UpdateHealthBar();
         Damaged?.Invoke(amount);
@@ -56,11 +80,22 @@ public class PlayerHealth : MonoBehaviour
             flashRoutine = StartCoroutine(FlashRoutine());
         }
     
-        if (CurrentHealth <= 0)
+        if (invincible)
         {
-            Debug.Log("[PlayerHealth] Player defeated -- resetting health so you can keep testing hits.");
-            CurrentHealth = maxHealth;
-            UpdateHealthBar();
+            if (CurrentHealth <= 0)
+            {
+                Debug.Log("[PlayerHealth] Player defeated -- resetting health so you can keep testing hits.");
+                CurrentHealth = maxHealth;
+                UpdateHealthBar();
+            }
+        }
+        else
+        {
+            if (CurrentHealth <= 0)
+            {
+                IsDead = true;
+                Died?.Invoke();
+            }
         }
     }
 

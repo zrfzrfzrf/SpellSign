@@ -155,7 +155,7 @@ public class EnemyTarget : MonoBehaviour
 
 	public void Revive()
 	{
-		if (!IsDead) return;
+		// No "only if dead" guard: a level restart also uses this to reset a boss that is still alive.
 
 		StopAllCoroutines(); // in case it's revived mid-blink
 		IsDead = false;

@@ -122,6 +122,22 @@ public class HandGestureRecognizer : MonoBehaviour
         }
     }
 
+    // Pausing the recognizer (e.g. while a menu is up) in the middle of a hold
+    // would leave that pose "confirmed" with its glow on; clear it so resuming
+    // starts clean.
+    void OnDisable()
+    {
+        foreach (var state in poseState)
+        {
+            state.holdTimer = 0f;
+            state.confirmed = false;
+            state.castPending = false;
+        }
+        foreach (var pose in poses)
+            if (pose != null && pose.effectObject != null)
+                pose.effectObject.SetActive(false);
+    }
+
     void Update()
     {
         if (palm == null) return;
