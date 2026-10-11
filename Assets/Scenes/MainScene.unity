@@ -18265,12 +18265,43 @@ MonoBehaviour:
   dropSpeed: 4
   projectilePrefab: {fileID: 0}
   attackRange: 8
-  attackCooldown: 4
+  openingDelay: 2
   muzzle: {fileID: 1735107471}
   obstacleMask:
     serializedVersion: 2
     m_Bits: 1
   requireLineOfSight: 0
+  attackTypes:
+  - name: Normal
+    weight: 0.6
+    chargeTimeScale: 1
+    chargeEffectScale: 1
+    shots: 0
+    projectileScale: 1
+    damageScale: 1
+    cooldownAfter: 2
+    animatorTrigger: Attack
+  - name: Charge
+    weight: 0.25
+    chargeTimeScale: 3
+    chargeEffectScale: 2
+    shots: 1
+    projectileScale: 2
+    damageScale: 2
+    cooldownAfter: 2
+    animatorTrigger: ChargeAttack
+  - name: Super
+    weight: 0.15
+    chargeTimeScale: 0
+    chargeEffectScale: 1
+    shots: 1
+    projectileScale: 3
+    damageScale: 3
+    cooldownAfter: 1
+    animatorTrigger: SuperAttack
+    waitForAnimation: 1
+    fireInState: metarig|Fly Superattack
+    fireDelay: 0.3
   waterAttack:
     projectilePrefab: {fileID: 5673061328924704138, guid: edbab03c7ca4f43a6a5898ccb7c58259, type: 3}
     shots: 3
