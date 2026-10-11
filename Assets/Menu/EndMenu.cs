@@ -1,11 +1,11 @@
 using System;
-using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 
 // The end-of-level menu: a panel that appears in front of the player with the
 // result and two touch buttons. It stays where it appeared (not stuck to the
-// head), within arm's reach, upright and facing the player.
+// head), within arm's reach, upright and facing the player -- until the player
+// walks or turns away from it, when it glides back in front of them.
 //
 // The panel is built from code the first time it's shown; this component only
 // needs the hands, whose index fingertips press the buttons.
@@ -35,6 +35,7 @@ public class EndMenu : MonoBehaviour
     public event Action NextLevelPressed;
 
     Transform panel;
+    MenuFollow follow; // moves the panel back in front of a player who walks or turns away
     Material panelMaterial;
     TextMeshPro title;
     TouchButton restartButton;
@@ -48,11 +49,13 @@ public class EndMenu : MonoBehaviour
         title.color = won ? WonColor : LostColor;
         nextLevelButton.Interactable = won && nextLevelAvailable;
 
-        Transform[] tips = IndexTips();
+        Transform[] tips = MenuParts.IndexTips(hands);
         restartButton.Fingertips = tips;
         nextLevelButton.Fingertips = tips;
 
-        PlaceInFrontOfPlayer();
+        follow.distance = distance;
+        follow.heightBelowEyes = heightBelowEyes;
+        MenuParts.PlaceInFrontOfPlayer(panel, distance, heightBelowEyes);
         panel.gameObject.SetActive(true);
     }
 
@@ -64,6 +67,7 @@ public class EndMenu : MonoBehaviour
     void Build()
     {
         panel = new GameObject("End Menu Panel").transform;
+        follow = panel.gameObject.AddComponent<MenuFollow>();
 
         panelMaterial = MenuParts.NewMaterial(PanelColor);
         MenuParts.NewQuad(panel, "Background", panelMaterial, PanelSize, Vector3.zero, Order);
@@ -80,32 +84,6 @@ public class EndMenu : MonoBehaviour
                                              new Color(0.25f, 0.65f, 0.4f, 0.95f), Order + 1);
         nextLevelButton.transform.localPosition = new Vector3(0.13f, -0.065f, 0f);
         nextLevelButton.Pressed += () => NextLevelPressed?.Invoke();
-    }
-
-    // Straight ahead of where the player is looking, ignoring head tilt, so
-    // the panel stands upright instead of tilting with a bowed head.
-    void PlaceInFrontOfPlayer()
-    {
-        Camera cam = Camera.main;
-        if (cam == null) return;
-
-        Vector3 forward = cam.transform.forward;
-        forward.y = 0f;
-        if (forward.sqrMagnitude < 0.0001f) forward = Vector3.forward;
-        forward.Normalize();
-
-        panel.position = cam.transform.position + forward * distance + Vector3.down * heightBelowEyes;
-        // The panel's +Z points away from the viewer, which is how its text reads correctly.
-        panel.rotation = Quaternion.LookRotation(forward);
-    }
-
-    Transform[] IndexTips()
-    {
-        var tips = new List<Transform>();
-        foreach (HandGestureRecognizer hand in hands)
-            if (hand != null && hand.indexTip != null)
-                tips.Add(hand.indexTip);
-        return tips.ToArray();
     }
 
     void OnDestroy()
