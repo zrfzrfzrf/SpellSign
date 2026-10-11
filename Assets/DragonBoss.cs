@@ -121,6 +121,28 @@ public class DragonBoss : MonoBehaviour
         StopCharge();
     }
 
+    // Stops attacking right now: cancels an attack in progress (the charge-up and
+    // any shots still to come) and keeps a new one from starting. GameFlow uses
+    // it while the end menu is up.
+    public void StopAttacking()
+    {
+        StopAllCoroutines();
+        attacking = false;
+        StopCharge();
+        enabled = false;
+    }
+
+    // Back to a fresh fight: drops in front of the player again and attacks
+    // after the usual first-shot delay. Run EnemyTarget.Revive() first, so the
+    // dragon is active and alive.
+    public void ResetForRestart()
+    {
+        enabled = true; // OnEnable resets the attack state and the attack timer
+        PlaceInFrontOfPlayer();
+        if (animator != null && animator.gameObject.activeInHierarchy)
+            animator.Rebind(); // back to Idle, in case it was mid-attack
+    }
+
     void OnDestroy()
     {
         if (charge != null) Destroy(charge.gameObject);
