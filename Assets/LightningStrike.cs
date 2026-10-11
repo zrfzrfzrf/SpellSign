@@ -18,6 +18,9 @@ public class LightningStrike : MonoBehaviour
     [Tooltip("Which layers the bolt can hit.")]
     public LayerMask hitMask = ~0;
 
+    [Tooltip("How far (in meters) the aim can be off an enemy and the bolt still strikes it. The bolt is a hair-thin line, so without this it slips through the gaps between an enemy's hit colliders. 0 = the aim has to be exact.")]
+    public float aimAssistRadius = 0.15f;
+
     [Header("Jagged shape")]
     [Tooltip("How many straight segments make up the zigzag. More = more jagged detail.")]
     public int segments = 6;
@@ -32,6 +35,8 @@ public class LightningStrike : MonoBehaviour
     public ParticleSystem impactSparks;
 
     private LineRenderer coreLine;
+
+    static readonly RaycastHit[] assistHits = new RaycastHit[16];
 
     void Awake()
     {
@@ -49,15 +54,27 @@ public class LightningStrike : MonoBehaviour
         Vector3 direction = transform.forward;
         Vector3 end;
 
-        if (Physics.Raycast(start, direction, out RaycastHit hit, maxRange, hitMask))
+        bool struck = Physics.Raycast(start, direction, out RaycastHit hit, maxRange, hitMask);
+        EnemyTarget target = struck ? hit.collider.GetComponentInParent<EnemyTarget>() : null;
+
+        // A near miss still counts: look for an enemy close beside the line, no
+        // further away than whatever the exact line hit (so walls still block).
+        if (target == null && aimAssistRadius > 0f
+            && NearestEnemyAlong(start, direction, struck ? hit.distance : maxRange, out RaycastHit near))
+        {
+            hit = near;
+            struck = true;
+            target = hit.collider.GetComponentInParent<EnemyTarget>();
+        }
+
+        if (struck)
         {
             end = hit.point;
 
             Debug.Log("Lightning hit: " + hit.collider.gameObject.name);
 
-            EnemyTarget target = hit.collider.GetComponentInParent<EnemyTarget>();
             if (target != null)
-                target.TakeHit(Element.Lightning);
+                target.TakeHit(Element.Lightning, hit.point);
         }
         else
         {
@@ -82,6 +99,25 @@ public class LightningStrike : MonoBehaviour
         }
 
         Destroy(gameObject, flashDuration);
+    }
+
+    // The closest enemy collider that a ball of aimAssistRadius, swept along the
+    // line, would touch.
+    private bool NearestEnemyAlong(Vector3 start, Vector3 direction, float distance, out RaycastHit nearest)
+    {
+        nearest = default;
+        int count = Physics.SphereCastNonAlloc(start, aimAssistRadius, direction, assistHits, distance, hitMask);
+        bool found = false;
+        for (int i = 0; i < count; i++)
+        {
+            RaycastHit h = assistHits[i];
+            if (h.distance <= 0f) continue; // already touching at the start: no hit point to strike
+            if (found && h.distance >= nearest.distance) continue;
+            if (h.collider.GetComponentInParent<EnemyTarget>() == null) continue;
+            nearest = h;
+            found = true;
+        }
+        return found;
     }
 
     // Splits the straight start->end line into `segments` pieces and nudges
