@@ -21,6 +21,7 @@ public class FireballProjectile : MonoBehaviour
 
     private Rigidbody rb;
     private float spawnTime;
+    private bool hasHit;
 
     void Awake()
     {
@@ -50,6 +51,12 @@ public class FireballProjectile : MonoBehaviour
             Debug.Log("[FireballProjectile] Ignored early self-collision with: " + collision.gameObject.name);
             return;
         }
+
+        // Destroy() only takes effect at the end of the frame, and a shot that
+        // touches two colliders at once (the dragon's overlapping hitboxes, or
+        // the dragon and a wall) gets a callback for each. Count the first only.
+        if (hasHit) return;
+        hasHit = true;
 
         Debug.Log("Fireball hit: " + collision.gameObject.name);
 
