@@ -1,7 +1,8 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 
-// Small builders for the end menu, which is made entirely from code: flat
+// Small builders for the menus, which are made entirely from code: flat
 // unlit quads and TMP labels. Sorting orders keep the layers in a fixed
 // back-to-front order (transparent objects are otherwise sorted by distance,
 // which flips when you look at the panel from the side).
@@ -39,6 +40,47 @@ public static class MenuParts
         meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         meshRenderer.receiveShadows = false;
         return quad.transform;
+    }
+
+    // The spot for a menu panel: straight ahead of where the player is looking,
+    // ignoring head tilt, so the panel stands upright instead of tilting with a
+    // bowed head. False when there is no camera to place it by.
+    public static bool SpotInFrontOfPlayer(float distance, float heightBelowEyes,
+                                           out Vector3 position, out Quaternion rotation)
+    {
+        position = default;
+        rotation = Quaternion.identity;
+
+        Camera cam = Camera.main;
+        if (cam == null) return false;
+
+        Vector3 forward = cam.transform.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.0001f) forward = Vector3.forward;
+        forward.Normalize();
+
+        position = cam.transform.position + forward * distance + Vector3.down * heightBelowEyes;
+        // The panel's +Z points away from the viewer, which is how its text reads correctly.
+        rotation = Quaternion.LookRotation(forward);
+        return true;
+    }
+
+    // Puts the panel on that spot at once, for when it first appears.
+    public static void PlaceInFrontOfPlayer(Transform panel, float distance, float heightBelowEyes)
+    {
+        if (SpotInFrontOfPlayer(distance, heightBelowEyes, out Vector3 position, out Quaternion rotation))
+            panel.SetPositionAndRotation(position, rotation);
+    }
+
+    // Both hands' index fingertips: what presses a TouchButton.
+    public static Transform[] IndexTips(HandGestureRecognizer[] hands)
+    {
+        var tips = new List<Transform>();
+        if (hands != null)
+            foreach (HandGestureRecognizer hand in hands)
+                if (hand != null && hand.indexTip != null)
+                    tips.Add(hand.indexTip);
+        return tips.ToArray();
     }
 
     // fontSize is in TMP's world-text units: about 0.1 m of line height per 1.0.

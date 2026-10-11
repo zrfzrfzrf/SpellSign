@@ -2,14 +2,18 @@ using System.Collections;
 using UnityEngine;
 
 // Runs a level from start to finish:
-//   Playing -> Won (the boss dies) or Lost (the player dies) -> end menu
+//   Not Started (start menu) -> Play -> Playing
+//   -> Won (the boss dies) or Lost (the player dies) -> end menu
 //   -> Restart puts everything back to a fresh Playing state.
 //
-// While the menu is up the fight is frozen: spell recognition is off, the
+// Before Play the dragon isn't there at all; pressing Play drops it in front
+// of wherever the player is standing and looking at that moment.
+//
+// While the end menu is up the fight is frozen: spell recognition is off, the
 // boss has stopped attacking and every projectile is gone.
 public class GameFlow : MonoBehaviour
 {
-    public enum State { Playing, Won, Lost }
+    public enum State { Playing, Won, Lost, NotStarted }
     public enum DebugStart { None, Won, Lost }
 
     [Header("What the level is made of")]
@@ -20,6 +24,10 @@ public class GameFlow : MonoBehaviour
     public HandGestureRecognizer[] hands;
     public EndMenu menu;
 
+    [Header("Start")]
+    [Tooltip("Open with a start menu and begin the fight when Play is pressed. Off = the fight begins as soon as the game loads.")]
+    public bool showStartMenu = true;
+
     [Header("Timing")]
     [Tooltip("Seconds between the fight ending and the menu appearing. Long enough for the boss's death blink to finish.")]
     public float menuDelay = 1.5f;
@@ -29,6 +37,8 @@ public class GameFlow : MonoBehaviour
     public DebugStart debugStart = DebugStart.None;
 
     public State Current { get; private set; } = State.Playing;
+
+    StartMenu startMenu;
 
     void OnEnable()
     {
@@ -48,6 +58,25 @@ public class GameFlow : MonoBehaviour
     {
         if (debugStart == DebugStart.Won) Finish(State.Won);
         else if (debugStart == DebugStart.Lost) Finish(State.Lost);
+        else if (showStartMenu) WaitForPlay();
+    }
+
+    void WaitForPlay()
+    {
+        Current = State.NotStarted;
+        SetHandsActive(false); // touching Play can't cast a spell
+        boss.gameObject.SetActive(false);
+
+        startMenu = gameObject.AddComponent<StartMenu>();
+        startMenu.hands = hands;
+        startMenu.PlayPressed += Play;
+        startMenu.Show();
+    }
+
+    void Play()
+    {
+        startMenu.Hide();
+        Restart(); // brings the dragon in, in front of the player, at full health
     }
 
     void OnBossDied() => Finish(State.Won);

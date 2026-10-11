@@ -7,6 +7,9 @@ namespace SpellSign.CombatFeedback
     // Image (healthBarFill), which is switched off in the scene along with its
     // background, so moving that Image in the editor still moves this bar.
     //
+    // Only shown during the fight: hidden while the start menu or the end menu
+    // is up.
+    //
     // Lives on the CombatFeedback prefab; needs the HealthBar material.
     public class PlayerHudHealthBar : MonoBehaviour
     {
@@ -14,11 +17,13 @@ namespace SpellSign.CombatFeedback
         [SerializeField] Material barMaterial;
 
         PlayerHealth player;
+        GameFlow flow;
         HealthBarView bar;
 
         void Start()
         {
             player = FindFirstObjectByType<PlayerHealth>();
+            flow = FindFirstObjectByType<GameFlow>(); // optional: without one the bar always shows
             if (player == null || player.healthBarFill == null || barMaterial == null)
             {
                 Debug.LogWarning("[PlayerHudHealthBar] needs a PlayerHealth with a Health Bar Fill image, and the bar material.");
@@ -48,6 +53,9 @@ namespace SpellSign.CombatFeedback
 
         void Update()
         {
+            bool fighting = flow == null || flow.Current == GameFlow.State.Playing;
+            if (bar.gameObject.activeSelf != fighting) bar.gameObject.SetActive(fighting);
+
             bar.SetFraction(player.maxHealth > 0 ? (float)player.CurrentHealth / player.maxHealth : 0f);
         }
 

@@ -40,7 +40,8 @@ namespace SpellSign.CombatFeedback
                 return;
             }
 
-            foreach (EnemyTarget enemy in FindObjectsByType<EnemyTarget>(FindObjectsSortMode.None))
+            // Inactive ones too: the dragon is switched off until Play is pressed.
+            foreach (EnemyTarget enemy in FindObjectsByType<EnemyTarget>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 HealthBarView bar = HealthBarView.Create(enemy.name + " HealthBar", barMaterial, fillColor, true);
                 bar.transform.localScale = new Vector3(size.x, size.y, 1f);
