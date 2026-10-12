@@ -28,6 +28,10 @@ public class EnemyTarget : MonoBehaviour
 	[Tooltip("Optional UI Image with Image Type = Filled.")]
 	public Image healthBarFill;
 
+	[Header("Head")]
+	[Tooltip("The hit collider on the head. Hits on it deal extra damage, and the health bar sits above it. Empty = no headshots, and the bar sits over the middle of the model.")]
+	public BoxCollider headCollider;
+
 	[Header("Damage numbers")]
 	public Color normalColor = Color.white;
 	public Color effectiveColor = new Color(0.94f, 0.62f, 0.15f);
@@ -122,7 +126,8 @@ public class EnemyTarget : MonoBehaviour
 
 	// hitPoint: where the spell struck, for the damage number / deflect ripple.
 	// Without it they appear on the side of the enemy facing the player.
-	public void TakeHit(Element attack, Vector3? hitPoint = null)
+	// struck: the collider the spell hit, to tell a headshot from a body hit.
+	public void TakeHit(Element attack, Vector3? hitPoint = null, Collider struck = null)
 	{
 		if (IsDead) return;
 
@@ -134,7 +139,12 @@ public class EnemyTarget : MonoBehaviour
 			SpellSign.CombatFeedback.DeflectRipple.Spawn(point);
 			return;
 		}
-		ShowDamageNumber(damage, point);
+
+		bool effective = damage == ElementRules.Effective;
+		// A headshot adds a random bonus: at least 1, at most double the damage.
+		if (headCollider != null && struck == headCollider)
+			damage = UnityEngine.Random.Range(damage + 1, damage * 2 + 1); // the upper end is left out
+		ShowDamageNumber(damage, effective, point);
 
 		//Flash();
 
@@ -225,9 +235,8 @@ public class EnemyTarget : MonoBehaviour
 		return Element.Lightning;
 	}
 
-	void ShowDamageNumber(int damage, Vector3 point)
+	void ShowDamageNumber(int damage, bool effective, Vector3 point)
 	{
-		bool effective = damage == ElementRules.Effective;
 		Camera cam = Camera.main;
 		if (cam != null)
 			point += (cam.transform.position - point).normalized * numberLift;
@@ -263,6 +272,26 @@ public class EnemyTarget : MonoBehaviour
 			else bounds.Encapsulate(r.bounds);
 		}
 		return any;
+	}
+
+	// World bounds of the head's hit collider, worked out from its transform so
+	// they are right this frame and while the collider is off (a dying enemy).
+	public bool TryGetHeadBounds(out Bounds bounds)
+	{
+		bounds = default;
+		if (headCollider == null) return false;
+
+		Transform head = headCollider.transform;
+		Vector3 half = headCollider.size * 0.5f;
+		bounds = new Bounds(head.TransformPoint(headCollider.center), Vector3.zero);
+		for (int i = 0; i < 8; i++)
+		{
+			var corner = new Vector3((i & 1) == 0 ? -half.x : half.x,
+									 (i & 2) == 0 ? -half.y : half.y,
+									 (i & 4) == 0 ? -half.z : half.z);
+			bounds.Encapsulate(head.TransformPoint(headCollider.center + corner));
+		}
+		return true;
 	}
 
 	void UpdateHealthBar()
