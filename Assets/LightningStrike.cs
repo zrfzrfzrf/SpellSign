@@ -74,7 +74,7 @@ public class LightningStrike : MonoBehaviour
             Debug.Log("Lightning hit: " + hit.collider.gameObject.name);
 
             if (target != null)
-                target.TakeHit(Element.Lightning, hit.point);
+                target.TakeHit(Element.Lightning, hit.point, hit.collider);
         }
         else
         {

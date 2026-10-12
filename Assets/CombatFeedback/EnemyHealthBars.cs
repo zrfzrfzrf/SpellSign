@@ -4,8 +4,9 @@ using UnityEngine;
 namespace SpellSign.CombatFeedback
 {
     // Puts a health bar above every active EnemyTarget (the dragon), facing the
-    // player. It sits just over the top of the enemy's model and follows it as
-    // it moves or animates. Drawn on top of everything so wings can't hide it.
+    // player. It sits just over the enemy's head (or over the top of its model,
+    // if it has no Head Collider) and follows it as it moves or animates. Drawn
+    // on top of everything so wings can't hide it.
     //
     // Replaces the boss bar that used to be stuck in the HUD. Lives on the
     // CombatFeedback prefab; needs the HealthBar material.
@@ -17,7 +18,7 @@ namespace SpellSign.CombatFeedback
 
         [Tooltip("Bar size in meters.")]
         [SerializeField] Vector2 size = new Vector2(0.8f, 0.08f);
-        [Tooltip("Gap between the top of the enemy's model and the bar, in meters.")]
+        [Tooltip("Gap between the top of the enemy's head (or model) and the bar, in meters.")]
         [SerializeField] float gap = 0.05f;
         [Tooltip("How quickly the bar follows the model's height as it animates, in seconds.")]
         [SerializeField] float heightSmoothing = 0.25f;
@@ -66,6 +67,8 @@ namespace SpellSign.CombatFeedback
                 bool show = t.enemy != null && t.enemy.isActiveAndEnabled && t.enemy.TryGetVisibleBounds(out bounds);
                 t.bar.gameObject.SetActive(show);
                 if (!show) continue;
+
+                if (t.enemy.TryGetHeadBounds(out Bounds head)) bounds = head;
 
                 float top = bounds.max.y + gap;
                 t.height = float.IsNaN(t.height) ? top

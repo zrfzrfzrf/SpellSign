@@ -14527,6 +14527,7 @@ MonoBehaviour:
   blinkInterval: 0.15
   maxHealth: 100
   healthBarFill: {fileID: 0}
+  headCollider: {fileID: 0}
   normalColor: {r: 1, g: 1, b: 1, a: 1}
   effectiveColor: {r: 0.94, g: 0.62, b: 0.15, a: 1}
   effectiveSize: 1.4
@@ -18256,7 +18257,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DragonBoss
   target: {fileID: 812024471}
-  spawnDistance: 2.2
+  spawnDistance: 3.25
   raycastStartHeight: 0.5
   floorMask:
     serializedVersion: 2
@@ -18279,7 +18280,7 @@ MonoBehaviour:
     shots: 0
     projectileScale: 1
     damageScale: 1
-    cooldownAfter: 2
+    cooldownAfter: 4.5
     animatorTrigger: Attack
     waitForAnimation: 0
     fireInState: attack
@@ -18290,12 +18291,12 @@ MonoBehaviour:
     breathAnimatorSpeed: 1
   - name: Charge
     weight: 0.25
-    chargeTimeScale: 3
+    chargeTimeScale: 1.3333333
     chargeEffectScale: 2
     shots: 1
     projectileScale: 2
     damageScale: 2
-    cooldownAfter: 2
+    cooldownAfter: 4.5
     animatorTrigger: ChargeAttack
     waitForAnimation: 0
     fireInState: metarig|Charge Attack
@@ -18306,12 +18307,12 @@ MonoBehaviour:
     breathAnimatorSpeed: 1
   - name: Breath
     weight: 0.15
-    chargeTimeScale: 5
+    chargeTimeScale: 2.222222
     chargeEffectScale: 3
     shots: 1
     projectileScale: 1
     damageScale: 1
-    cooldownAfter: 1
+    cooldownAfter: 4.5
     animatorTrigger: SuperAttack
     waitForAnimation: 1
     fireInState: metarig|Fly Superattack
@@ -18324,19 +18325,19 @@ MonoBehaviour:
     projectilePrefab: {fileID: 5673061328924704138, guid: edbab03c7ca4f43a6a5898ccb7c58259, type: 3}
     shots: 3
     shotInterval: 0.2
-    chargeTime: 0.6
+    chargeTime: 1.35
     chargeColor: {r: 0.2, g: 0.5, b: 1, a: 1}
   fireAttack:
     projectilePrefab: {fileID: 1735880896772351480, guid: 964dc10268f3549b18b55cc19d1104a6, type: 3}
     shots: 1
     shotInterval: 0.2
-    chargeTime: 0.6
+    chargeTime: 1.35
     chargeColor: {r: 1, g: 0.5, b: 0.1, a: 1}
   lightningAttack:
     projectilePrefab: {fileID: 8028712579394654373, guid: 614500c1e0a8545dfb2ab5dd3b8f3ec6, type: 3}
     shots: 1
     shotInterval: 0.2
-    chargeTime: 0.6
+    chargeTime: 1.35
     chargeColor: {r: 1, g: 0.9, b: 0.2, a: 1}
   chargeRadius: 0.25
   chargeParticlesPerSecond: 80
@@ -18394,8 +18395,9 @@ MonoBehaviour:
   flashColor: {r: 1, g: 0.6084906, b: 0.6084906, a: 1}
   deathBlinks: 4
   blinkInterval: 0.15
-  maxHealth: 30
+  maxHealth: 60
   healthBarFill: {fileID: 2029895961}
+  headCollider: {fileID: 1705437423}
   normalColor: {r: 1, g: 1, b: 1, a: 1}
   effectiveColor: {r: 0.94, g: 0.62, b: 0.15, a: 1}
   effectiveSize: 1.4
@@ -33555,6 +33557,7 @@ MonoBehaviour:
   - {fileID: 397383766}
   - {fileID: 984317019}
   menu: {fileID: 1999000004}
+  showStartMenu: 1
   menuDelay: 1.5
   debugStart: 0
 --- !u!114 &1999000004
