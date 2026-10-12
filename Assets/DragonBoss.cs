@@ -194,6 +194,10 @@ public class DragonBoss : MonoBehaviour
     const float ParticleSizeMin = 0.012f;
     const float ParticleSizeMax = 0.028f;
 
+    // While true the dragon never starts an attack: it lands, stands there and
+    // can be hit (phase changes included). For the sandbox.
+    public bool Passive { get; set; }
+
     private float attackTimer;
     private bool attacking;
     private Coroutine attackRoutine;
@@ -346,7 +350,7 @@ public class DragonBoss : MonoBehaviour
         }
 
         // The rest after an attack counts down only once the attack is over.
-        if (attacking) return;
+        if (attacking || Passive) return;
 
         attackTimer -= Time.deltaTime;
         float distance = Vector3.Distance(transform.position, target.position);
