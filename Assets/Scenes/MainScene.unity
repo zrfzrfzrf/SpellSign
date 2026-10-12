@@ -6218,6 +6218,7 @@ MonoBehaviour:
   openThreshold: 0.13
   poses:
   - {fileID: 11400000, guid: d522da379f2b14fb4af56c6ed3bb331b, type: 2}
+  - {fileID: 11400000, guid: d24ef38d9d8dd460ba7a71c59b911d3b, type: 2}
   - {fileID: 11400000, guid: 62522e4d6a5e447f0845bd0582687ecd, type: 2}
   aimSource: {fileID: 0}
   indexKnuckle: {fileID: 2092750117}
@@ -6226,6 +6227,18 @@ MonoBehaviour:
   aimPitchCorrection: 0
   globalCastCooldown: 0.15
   settleSpeedThreshold: 0.6
+  pushSpeed: 0.7
+  pushRearmSpeed: 0.2
+  pushMinTravel: 0.06
+  swingSpeed: 200
+  swingMinAngle: 35
+  aimGateAngle: 40
+  flickSpeed: 0.45
+  flickTurnRate: 110
+  flickMinTravel: 0.04
+  flickMinAngle: 15
+  pointRadius: 0.1
+  glowSize: 0.16
   headReference: {fileID: 812024471}
   palmNormalAxis: 3
   palmAwayDotThreshold: 0
@@ -16248,8 +16261,9 @@ MonoBehaviour:
   closeThreshold: 0.1
   openThreshold: 0.13
   poses:
+  - {fileID: 11400000, guid: d522da379f2b14fb4af56c6ed3bb331b, type: 2}
   - {fileID: 11400000, guid: d24ef38d9d8dd460ba7a71c59b911d3b, type: 2}
-  - {fileID: 0}
+  - {fileID: 11400000, guid: 62522e4d6a5e447f0845bd0582687ecd, type: 2}
   aimSource: {fileID: 0}
   indexKnuckle: {fileID: 1205938290}
   handForwardAxis: 0
@@ -16257,6 +16271,18 @@ MonoBehaviour:
   aimPitchCorrection: 0
   globalCastCooldown: 0.15
   settleSpeedThreshold: 0.6
+  pushSpeed: 0.7
+  pushRearmSpeed: 0.2
+  pushMinTravel: 0.06
+  swingSpeed: 200
+  swingMinAngle: 35
+  aimGateAngle: 40
+  flickSpeed: 0.45
+  flickTurnRate: 110
+  flickMinTravel: 0.04
+  flickMinAngle: 15
+  pointRadius: 0.1
+  glowSize: 0.16
   headReference: {fileID: 812024471}
   palmNormalAxis: 3
   palmAwayDotThreshold: 0
@@ -33562,6 +33588,8 @@ MonoBehaviour:
   - {fileID: 984317019}
   menu: {fileID: 1999000004}
   showStartMenu: 1
+  showSandboxButton: 1
+  fightCastMode: 1
   menuDelay: 1.5
   debugStart: 0
 --- !u!114 &1999000004

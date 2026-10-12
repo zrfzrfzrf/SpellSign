@@ -20,6 +20,7 @@ MonoBehaviour:
   pinky: 1
   spellPrefab: {fileID: 3026053784855609827, guid: 8a1d6c899cf634a278c8bbbc0991ee93, type: 3}
   effectObject: {fileID: 0}
+  glowColor: {r: 1, g: 0.5, b: 0.1, a: 1}
   poseConfirmDelay: 0.12
   castCooldown: 0.4
   aimMode: 0
