@@ -18,7 +18,7 @@ namespace SpellSign.CombatFeedback
         [SerializeField] Color fillColor = new Color(0.89f, 0.29f, 0.29f);
 
         [Tooltip("Bar size in meters.")]
-        [SerializeField] Vector2 size = new Vector2(0.8f, 0.08f);
+        [SerializeField] Vector2 size = new Vector2(1.2f, 0.12f);
         [Tooltip("Gap between the top of the enemy's head (or model) and the bar, in meters.")]
         [SerializeField] float gap = 0.05f;
         [Tooltip("How quickly the bar follows the model's height as it animates, in seconds.")]
