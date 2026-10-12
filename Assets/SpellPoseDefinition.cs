@@ -39,6 +39,9 @@ public class SpellPoseDefinition : ScriptableObject
     [Tooltip("Optional: a GameObject in the scene (e.g. a glow effect) to show while this exact pose is held. Leave empty if not needed.")]
     public GameObject effectObject;
 
+    [Tooltip("Color of the glow on the hand while this sign is being read.")]
+    public Color glowColor = Color.white;
+
     [Header("Timing")]
     [Tooltip("How long (seconds) this exact pose must be held continuously before it counts as confirmed. Filters out brief hand-tracking glitches. 0.1-0.15 is a good starting point.")]
     public float poseConfirmDelay = 0.12f;

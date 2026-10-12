@@ -20,7 +20,9 @@ MonoBehaviour:
   pinky: 1
   spellPrefab: {fileID: 1807841106709304783, guid: 546f4f08d4e6a480aa602704f8e48e50, type: 3}
   effectObject: {fileID: 0}
+  glowColor: {r: 0.2, g: 0.5, b: 1, a: 1}
   poseConfirmDelay: 0.2
   castCooldown: 0.4
   aimMode: 0
   requirePalmFacingAway: 0
+  requirePalmFacingDown: 0
