@@ -6,7 +6,8 @@ namespace SpellSign.CombatFeedback
     // Puts a health bar above every active EnemyTarget (the dragon), facing the
     // player. It sits just over the enemy's head (or over the top of its model,
     // if it has no Head Collider) and follows it as it moves or animates. Drawn
-    // on top of everything so wings can't hide it.
+    // on top of everything so wings can't hide it. Marks on the bar show where
+    // the enemy's phases change.
     //
     // Replaces the boss bar that used to be stuck in the HUD. Lives on the
     // CombatFeedback prefab; needs the HealthBar material.
@@ -46,6 +47,7 @@ namespace SpellSign.CombatFeedback
             {
                 HealthBarView bar = HealthBarView.Create(enemy.name + " HealthBar", barMaterial, fillColor, true);
                 bar.transform.localScale = new Vector3(size.x, size.y, 1f);
+                bar.SetSections(EnemyTarget.Phases);
                 tracked.Add(new Tracked
                 {
                     enemy = enemy,

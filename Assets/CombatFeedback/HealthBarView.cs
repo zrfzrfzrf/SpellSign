@@ -15,6 +15,7 @@ namespace SpellSign.CombatFeedback
 
         static readonly int FillId = Shader.PropertyToID("_Fill");
         static readonly int TrailId = Shader.PropertyToID("_Trail");
+        static readonly int SectionsId = Shader.PropertyToID("_Sections");
         static readonly int AspectId = Shader.PropertyToID("_Aspect");
         static readonly int FillColorId = Shader.PropertyToID("_FillColor");
         static readonly int ZTestId = Shader.PropertyToID("_ZTest");
@@ -44,6 +45,12 @@ namespace SpellSign.CombatFeedback
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             return view;
+        }
+
+        // Splits the bar into equal parts with a thin mark between them. 1 = no marks.
+        public void SetSections(int sections)
+        {
+            material.SetFloat(SectionsId, Mathf.Max(1, sections));
         }
 
         public void SetFraction(float fraction)

@@ -8,6 +8,11 @@ using UnityEngine.UI;
 // remaining health: top third Water, middle third Fire, bottom third
 // Lightning. SetElement() lets other code switch it directly.
 //
+// A hit that takes the enemy into its next phase raises PhaseChangeStarted
+// and leaves the element as it was: whoever listens (DragonBoss) plays the
+// change and calls FinishPhaseChange() when the new element should take over.
+// With nobody listening the element switches on the spot.
+//
 // At zero health the enemy dies: it stops taking hits, blinks a few times and
 // deactivates. Revive() brings it back in place at full health.
 //
@@ -44,20 +49,22 @@ public class EnemyTarget : MonoBehaviour
 
 	public Element CurrentElement { get; private set;  }
 
-	public void ChangeElementVisual(Element element)
+	// whiten: 0 = the element's own colors, 1 = all white. For the flash of a
+	// phase change.
+	public void ChangeElementVisual(Element element, float whiten = 0f)
 	{
 		switch (element)
 		{
 			case Element.Fire:
-				ChangeElementColorFromIndex(0);
+				ChangeElementColorFromIndex(0, whiten);
 				return;
 
 			case Element.Lightning:
-				ChangeElementColorFromIndex(1);
+				ChangeElementColorFromIndex(1, whiten);
 				return;
 
 			case Element.Water:
-				ChangeElementColorFromIndex(2);
+				ChangeElementColorFromIndex(2, whiten);
 				return;
 		}
 	}
@@ -81,7 +88,7 @@ public class EnemyTarget : MonoBehaviour
 	[SerializeField]
 	private CreatureMode[] dragonModeColors;
 
-	void ChangeElementColorFromIndex(int elementIndex)
+	void ChangeElementColorFromIndex(int elementIndex, float whiten)
 	{
 		CreatureMode chosenMode = dragonModeColors[elementIndex];
 
@@ -90,11 +97,27 @@ public class EnemyTarget : MonoBehaviour
 			for (int j = 0; j < chosenMode.parts[i].renderers.Length; j++)
 			{
 				var mat = chosenMode.parts[i].renderers[j].materials[chosenMode.parts[i].materialIndex];
-				mat.SetColor("_BaseColor", chosenMode.parts[i].color);
+				Color color = chosenMode.parts[i].color;
+				Color shown = Color.Lerp(color, Color.white, whiten);
+				shown.a = color.a;
+				mat.SetColor("_BaseColor", shown);
 			}
 		}
 	}
 	public bool IsDead { get; private set; }
+
+	// How many phases the health is split into, for the health bar's marks.
+	public const int Phases = 3;
+
+	// While true, spells bounce off as if the enemy were immune to them.
+	public bool Invulnerable { get; set; }
+
+	// True from the hit that crossed into the next phase until FinishPhaseChange().
+	public bool ChangingPhase { get; private set; }
+
+	// Raised by the hit that takes health into the next phase, with that
+	// phase's element. The element itself doesn't change until FinishPhaseChange().
+	public event Action<Element> PhaseChangeStarted;
 
 	// Raised whenever the element changes -- hook element-specific visuals here.
 	public event Action<Element> ElementChanged;
@@ -134,7 +157,7 @@ public class EnemyTarget : MonoBehaviour
 		int damage = ElementRules.Damage(attack, CurrentElement);
 		Vector3 point = hitPoint ?? PointFacingPlayer();
 
-		if (damage == ElementRules.Immune)
+		if (damage == ElementRules.Immune || Invulnerable)
 		{
 			SpellSign.CombatFeedback.DeflectRipple.Spawn(point);
 			return;
@@ -159,8 +182,23 @@ public class EnemyTarget : MonoBehaviour
 		}
 
 		Element phaseAfter = ElementForHealth(CurrentHealth);
-		if (phaseAfter != phaseBefore)
+		if (phaseAfter == phaseBefore || ChangingPhase) return; // a change under way picks up the newest phase when it finishes
+
+		if (PhaseChangeStarted != null)
+		{
+			ChangingPhase = true;
+			PhaseChangeStarted(phaseAfter);
+		}
+		else
 			SetElement(phaseAfter);
+	}
+
+	// Switches to the element that goes with the health left, ending a phase
+	// change. Also puts the element's colors back after a whitened flash.
+	public void FinishPhaseChange()
+	{
+		ChangingPhase = false;
+		SetElement(ElementForHealth(CurrentHealth));
 	}
 
 	public void Revive()
@@ -169,6 +207,8 @@ public class EnemyTarget : MonoBehaviour
 
 		StopAllCoroutines(); // in case it's revived mid-blink
 		IsDead = false;
+		Invulnerable = false;
+		ChangingPhase = false;
 		CurrentHealth = maxHealth;
 		UpdateHealthBar();
 		SetElement(ElementForHealth(maxHealth));
@@ -225,6 +265,10 @@ public class EnemyTarget : MonoBehaviour
 		Debug.Log($"{name} element -> {element}");
 		ElementChanged?.Invoke(element);
 	}
+
+	// The element that goes with the health left right now. Differs from
+	// CurrentElement while a phase change is under way.
+	public Element PhaseElement => ElementForHealth(CurrentHealth);
 
 	Element ElementForHealth(int health)
 	{
