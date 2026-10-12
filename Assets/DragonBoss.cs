@@ -32,6 +32,13 @@ using Meta.XR.MRUtilityKit;
 // doesn't help and neither does moving; only the sigil shield (SigilShield)
 // stops it. It does its damage in ticks for as long as the breath lasts.
 //
+// A hit that takes the dragon into its next phase (see EnemyTarget) cuts short
+// whatever it was doing. It staggers back, still open to the spells that were
+// working; then it transforms: particles of the new element swirl into it, it
+// whitens, and on the flash the new colors take over and a ring bursts across
+// the floor. Spells bounce off for the whole transformation, and it attacks
+// again a moment after.
+//
 // The animation is the clock: every Attack Type names the moment in its
 // animation when the mouth spits (Fire In State + Fire Time). The shot leaves
 // on that moment and the particles are timed backward from it, so they finish
@@ -154,6 +161,30 @@ public class DragonBoss : MonoBehaviour
     public float floorFireRadius = 2.5f;
     public float floorFireParticlesPerSecond = 120f;
 
+    [Header("Phase change")]
+    [Tooltip("Seconds the dragon reels after the hit that takes it into its next phase. It can still be hurt, by the same spells as before.")]
+    public float staggerTime = 1f;
+    [Tooltip("How far it is knocked back at the start of the stagger, in meters.")]
+    public float staggerRecoil = 0.35f;
+    [Tooltip("Seconds the transformation into the new element takes. Spells bounce off for all of it.")]
+    public float transformTime = 2f;
+    [Tooltip("Seconds after the transformation before the next attack can start.")]
+    public float restAfterPhaseChange = 2f;
+
+    const float StaggerKickShare = 0.15f;   // part of the stagger spent being knocked back; the rest recovers
+    const float StaggerRearAngle = 12f;     // degrees the head is thrown up and back
+    const float StaggerShakeAngle = 6f;     // degrees of side-to-side shake at its strongest
+    const float StaggerShakeRate = 7f;      // shakes per second
+    const float GatherShare = 0.5f;         // part of the transformation spent gathering particles and whitening
+    const float SweepShare = 0.3f;          // part spent turning from white to the new colors; the rest it just stands
+    const float GatherParticleLife = 0.45f; // seconds a particle takes to swirl into the body
+    const float GatherRadiusScale = 0.7f;   // how far out the particles start, relative to the dragon's size
+    const float GatherSwirl = 5f;           // radians per second the particles circle while closing in
+    const float GatherParticlesPerSecond = 400f;
+    const int RingParticles = 160;
+    const float RingSpeed = 5f;             // meters per second the ring spreads over the floor
+    const float RingParticleLife = 0.6f;
+
     const float ChargeParticleLife = 0.35f; // seconds a particle takes to reach the muzzle
     const float BreathParticleLife = 0.6f;  // seconds a particle takes to get from the mouth to the player
     const float BreathOvershoot = 1f;       // meters the breath carries on past the player's head
@@ -165,6 +196,14 @@ public class DragonBoss : MonoBehaviour
 
     private float attackTimer;
     private bool attacking;
+    private Coroutine attackRoutine;
+    private Coroutine phaseRoutine;
+    private bool staggering;
+    private Vector3 staggerOffset;
+    private Quaternion staggerBaseRotation;
+    private ParticleSystem gather;
+    private ParticleSystem ring;
+    private BoxCollider[] hitboxes;
     private ParticleSystem charge;
     private Material chargeMaterial;
     private ParticleSystem breath;
@@ -184,6 +223,7 @@ public class DragonBoss : MonoBehaviour
     {
         if (muzzle == null) muzzle = transform;
         health = GetComponent<EnemyTarget>();
+        hitboxes = GetComponentsInChildren<BoxCollider>();
     }
 
     void OnEnable()
@@ -191,6 +231,7 @@ public class DragonBoss : MonoBehaviour
         // Also runs on revive: give the player a moment before the first shot.
         attackTimer = openingDelay;
         attacking = false; // an attack cut short by deactivation never cleared it
+        if (health != null) health.PhaseChangeStarted += OnPhaseChangeStarted;
         StartCoroutine(PlaceWhenReady());
     }
 
@@ -208,8 +249,10 @@ public class DragonBoss : MonoBehaviour
     {
         if (MRUK.Instance != null)
             MRUK.Instance.SceneLoadedEvent.RemoveListener(PlaceInFrontOfPlayer);
+        if (health != null) health.PhaseChangeStarted -= OnPhaseChangeStarted;
         StopCharge();
         StopBreath();
+        AbortPhaseChange();
     }
 
     // Stops attacking right now: cancels an attack in progress (the charge-up,
@@ -218,9 +261,11 @@ public class DragonBoss : MonoBehaviour
     public void StopAttacking()
     {
         StopAllCoroutines();
+        attackRoutine = null;
         attacking = false;
         StopCharge();
         StopBreath();
+        AbortPhaseChange();
         enabled = false;
     }
 
@@ -238,6 +283,8 @@ public class DragonBoss : MonoBehaviour
     void OnDestroy()
     {
         if (charge != null) Destroy(charge.gameObject);
+        if (gather != null) Destroy(gather.gameObject);
+        if (ring != null) Destroy(ring.gameObject);
         if (chargeMaterial != null) Destroy(chargeMaterial);
         if (breath != null) Destroy(breath.gameObject);
         if (floorFire != null) Destroy(floorFire.gameObject);
@@ -305,7 +352,7 @@ public class DragonBoss : MonoBehaviour
         float distance = Vector3.Distance(transform.position, target.position);
 
         if (distance <= attackRange && attackTimer <= 0f && (!requireLineOfSight || HasLineOfSight()))
-            StartCoroutine(AttackRoutine());
+            attackRoutine = StartCoroutine(AttackRoutine());
     }
 
     IEnumerator AttackRoutine()
@@ -372,7 +419,7 @@ public class DragonBoss : MonoBehaviour
 
         if (type.breathDuration > 0f)
         {
-            yield return StartCoroutine(BreathRoutine(attack, type));
+            yield return BreathRoutine(attack, type); // run inside this coroutine, so cancelling the attack ends it too
         }
         else
         {
@@ -388,10 +435,292 @@ public class DragonBoss : MonoBehaviour
         }
 
         if (type.waitForAnimation)
-            yield return StartCoroutine(WaitForAnimationToFinish());
+            yield return WaitForAnimationToFinish();
 
         attackTimer = type.cooldownAfter;
         attacking = false;
+        attackRoutine = null;
+    }
+
+    void OnPhaseChangeStarted(Element next)
+    {
+        if (phaseRoutine != null) StopCoroutine(phaseRoutine);
+        phaseRoutine = StartCoroutine(PhaseChangeRoutine());
+    }
+
+    // The stagger, then the transformation. No attack starts until it is over.
+    IEnumerator PhaseChangeRoutine()
+    {
+        // Whatever it was doing ends here: no shot, no breath, back on its feet.
+        if (attackRoutine != null) StopCoroutine(attackRoutine);
+        attackRoutine = null;
+        attacking = true;
+        StopCharge();
+        StopBreath();
+        if (animator != null)
+        {
+            foreach (AttackType type in attackTypes)
+                animator.ResetTrigger(type.animatorTrigger);
+            animator.CrossFadeInFixedTime(IdleState, 0.25f);
+        }
+
+        // Stagger: knocked back and shaking. Hits still count, against the old element.
+        staggering = true;
+        staggerBaseRotation = transform.rotation;
+        for (float t = 0f; t < staggerTime && !IsDead(); t += Time.deltaTime)
+        {
+            PoseStagger(t);
+            yield return null;
+        }
+        EndStagger();
+        if (IsDead())
+        {
+            phaseRoutine = null;
+            yield break;
+        }
+
+        // Transformation: spells bounce off from here on.
+        health.Invulnerable = true;
+        Color color = AttackFor(health.PhaseElement).chargeColor;
+        float gatherTime = transformTime * GatherShare;
+        float sweepTime = transformTime * SweepShare;
+
+        bool emitting = StartGather(color);
+        for (float t = 0f; t < gatherTime; t += Time.deltaTime)
+        {
+            float u = t / gatherTime;
+            health.ChangeElementVisual(health.CurrentElement, u * u); // whitens slowly, then fast
+            if (gather != null)
+            {
+                gather.transform.position = BodyCenter(out _);
+                // Stop early enough that the last particles arrive on the flash.
+                if (emitting && gatherTime - t <= GatherParticleLife)
+                {
+                    gather.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                    emitting = false;
+                }
+            }
+            yield return null;
+        }
+
+        // The flash: the element changes while the dragon is all white.
+        health.FinishPhaseChange();
+        health.ChangeElementVisual(health.CurrentElement, 1f);
+        BurstRing(color);
+
+        for (float t = 0f; t < sweepTime; t += Time.deltaTime)
+        {
+            health.ChangeElementVisual(health.CurrentElement, 1f - t / sweepTime);
+            yield return null;
+        }
+        health.ChangeElementVisual(health.CurrentElement);
+
+        float settleTime = transformTime - gatherTime - sweepTime;
+        if (settleTime > 0f) yield return new WaitForSeconds(settleTime);
+
+        health.Invulnerable = false;
+        attackTimer = restAfterPhaseChange;
+        attacking = false;
+        phaseRoutine = null;
+    }
+
+    // One frame of the stagger, t seconds in: thrown back with its head up,
+    // shaking less and less as it finds its feet again.
+    void PoseStagger(float t)
+    {
+        float u = Mathf.Clamp01(t / staggerTime);
+        float kick = u < StaggerKickShare
+            ? Mathf.SmoothStep(0f, 1f, u / StaggerKickShare)
+            : 1f - Mathf.SmoothStep(0f, 1f, (u - StaggerKickShare) / (1f - StaggerKickShare));
+        float fade = (1f - u) * (1f - u);
+        float phase = t * StaggerShakeRate * 2f * Mathf.PI;
+
+        // As a change from last frame, so the drop to the floor can go on underneath.
+        Vector3 offset = staggerBaseRotation * Vector3.back * (staggerRecoil * kick);
+        transform.position += offset - staggerOffset;
+        staggerOffset = offset;
+
+        transform.rotation = staggerBaseRotation * Quaternion.Euler(
+            -StaggerRearAngle * kick,
+            StaggerShakeAngle * fade * Mathf.Sin(phase),
+            StaggerShakeAngle * fade * Mathf.Sin(phase + 1.3f));
+    }
+
+    // Back to where and how it stood before the stagger.
+    void EndStagger()
+    {
+        if (!staggering) return;
+        transform.position -= staggerOffset;
+        transform.rotation = staggerBaseRotation;
+        staggerOffset = Vector3.zero;
+        staggering = false;
+    }
+
+    // Ends a phase change that can't play out (the fight is over, or the dragon
+    // was switched off). The new element still takes over, without the show.
+    void AbortPhaseChange()
+    {
+        if (phaseRoutine != null) StopCoroutine(phaseRoutine);
+        phaseRoutine = null;
+        EndStagger();
+        if (gather != null) gather.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+        if (health == null) return;
+        health.Invulnerable = false;
+        if (health.ChangingPhase && !health.IsDead) health.FinishPhaseChange();
+    }
+
+    // The middle of the dragon's hitboxes, and how far out its gathering
+    // particles should start.
+    Vector3 BodyCenter(out float radius)
+    {
+        bool any = false;
+        Bounds bounds = default;
+        foreach (BoxCollider box in hitboxes)
+        {
+            if (box == null || !box.enabled) continue;
+            if (!any) { bounds = box.bounds; any = true; }
+            else bounds.Encapsulate(box.bounds);
+        }
+
+        if (!any)
+        {
+            radius = 1.5f;
+            return transform.position + Vector3.up;
+        }
+        radius = bounds.extents.magnitude * GatherRadiusScale;
+        return bounds.center;
+    }
+
+    bool StartGather(Color color)
+    {
+        if (gather == null && !BuildPhaseEffects()) return false;
+
+        Vector3 center = BodyCenter(out float radius);
+        gather.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        gather.transform.position = center;
+
+        ParticleSystem.MainModule main = gather.main;
+        main.startColor = color;
+        ParticleSystem.ShapeModule shape = gather.shape;
+        shape.radius = radius;
+        // Inward at the speed that reaches the middle as the particle dies.
+        ParticleSystem.VelocityOverLifetimeModule velocity = gather.velocityOverLifetime;
+        velocity.radial = new ParticleSystem.MinMaxCurve(-radius / GatherParticleLife);
+
+        gather.Play();
+        return true;
+    }
+
+    void BurstRing(Color color)
+    {
+        if (ring == null) return;
+
+        Vector3 center = BodyCenter(out _);
+        ring.transform.position = new Vector3(center.x, targetFloorY + 0.05f, center.z);
+        ParticleSystem.MainModule main = ring.main;
+        main.startColor = color;
+        ring.Emit(RingParticles);
+    }
+
+    // The two effects of the transformation, built from code and kept out of
+    // the dragon's hierarchy like the charge-up effect: particles that swirl
+    // in from all around, and a ring that bursts outward over the floor.
+    bool BuildPhaseEffects()
+    {
+        Material material = SpriteMaterial();
+        if (material == null)
+        {
+            Debug.LogWarning("[DragonBoss] Sprites/Default shader not found -- no transformation effect.");
+            return false;
+        }
+
+        gather = NewPhaseSystem(name + " Phase Gather", material);
+        ParticleSystem.MainModule main = gather.main;
+        main.loop = true;
+        main.startLifetime = GatherParticleLife;
+        main.startSpeed = 0f;
+        main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.16f);
+        // Local, so the swirl stays centered on the dragon.
+        main.simulationSpace = ParticleSystemSimulationSpace.Local;
+        ParticleSystem.EmissionModule emission = gather.emission;
+        emission.rateOverTime = GatherParticlesPerSecond;
+        ParticleSystem.ShapeModule sphere = gather.shape;
+        sphere.shapeType = ParticleSystemShapeType.Sphere;
+        sphere.radiusThickness = 0f; // surface only
+        ParticleSystem.VelocityOverLifetimeModule swirl = gather.velocityOverLifetime;
+        swirl.enabled = true;
+        swirl.space = ParticleSystemSimulationSpace.Local;
+        // Every curve in the module has to be the same kind.
+        swirl.x = new ParticleSystem.MinMaxCurve(0f);
+        swirl.y = new ParticleSystem.MinMaxCurve(0f);
+        swirl.z = new ParticleSystem.MinMaxCurve(0f);
+        swirl.orbitalX = new ParticleSystem.MinMaxCurve(0f);
+        swirl.orbitalY = new ParticleSystem.MinMaxCurve(GatherSwirl);
+        swirl.orbitalZ = new ParticleSystem.MinMaxCurve(0f);
+        swirl.radial = new ParticleSystem.MinMaxCurve(0f); // set per transformation
+        SetFade(gather, 0f, 1f, 1f); // appear out of nothing, brightest as they arrive
+
+        ring = NewPhaseSystem(name + " Phase Ring", material);
+        // The circle shape lies in the system's XY plane: tip it flat onto the floor.
+        ring.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        ParticleSystem.MainModule ringMain = ring.main;
+        ringMain.loop = false;
+        ringMain.startLifetime = RingParticleLife;
+        ringMain.startSpeed = RingSpeed;
+        ringMain.startSize = new ParticleSystem.MinMaxCurve(0.04f, 0.09f);
+        // World, so the ring keeps spreading from where it burst.
+        ringMain.simulationSpace = ParticleSystemSimulationSpace.World;
+        ParticleSystem.EmissionModule ringEmission = ring.emission;
+        ringEmission.rateOverTime = 0f; // only the burst from BurstRing
+        ParticleSystem.ShapeModule circle = ring.shape;
+        circle.shapeType = ParticleSystemShapeType.Circle;
+        circle.radius = 0.3f;
+        circle.radiusThickness = 0f; // edge only
+        SetFade(ring, 1f, 1f, 0f);
+        return true;
+    }
+
+    ParticleSystem NewPhaseSystem(string systemName, Material material)
+    {
+        var go = new GameObject(systemName);
+        ParticleSystem system = go.AddComponent<ParticleSystem>();
+        system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+        ParticleSystem.MainModule main = system.main;
+        main.playOnAwake = false;
+
+        var renderer = go.GetComponent<ParticleSystemRenderer>();
+        renderer.sharedMaterial = material;
+        renderer.renderMode = ParticleSystemRenderMode.Stretch;
+        renderer.velocityScale = 0.05f;
+        renderer.lengthScale = 1f;
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        renderer.receiveShadows = false;
+        return system;
+    }
+
+    // Opacity at the start, the middle and the end of a particle's life.
+    static void SetFade(ParticleSystem system, float start, float middle, float end)
+    {
+        ParticleSystem.ColorOverLifetimeModule fade = system.colorOverLifetime;
+        fade.enabled = true;
+        var gradient = new Gradient();
+        gradient.SetKeys(
+            new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+            new[] { new GradientAlphaKey(start, 0f), new GradientAlphaKey(middle, 0.4f), new GradientAlphaKey(end, 1f) });
+        fade.color = gradient;
+    }
+
+    // One material for every effect drawn with plain sprites, made on first use.
+    Material SpriteMaterial()
+    {
+        if (chargeMaterial == null)
+        {
+            Shader shader = Shader.Find("Sprites/Default");
+            if (shader != null) chargeMaterial = new Material(shader);
+        }
+        return chargeMaterial;
     }
 
     // The breath: for Breath Duration the element pours from the mouth over the
@@ -500,11 +829,12 @@ public class DragonBoss : MonoBehaviour
         return attackTypes[0]; // only if the roll landed exactly on the total
     }
 
-    ElementAttack CurrentAttack()
+    // No EnemyTarget = no element; Fire is the plain single shot.
+    ElementAttack CurrentAttack() => health == null ? fireAttack : AttackFor(health.CurrentElement);
+
+    ElementAttack AttackFor(Element element)
     {
-        // No EnemyTarget = no element; Fire is the plain single shot.
-        if (health == null) return fireAttack;
-        switch (health.CurrentElement)
+        switch (element)
         {
             case Element.Water:     return waterAttack;
             case Element.Lightning: return lightningAttack;
@@ -787,8 +1117,8 @@ public class DragonBoss : MonoBehaviour
     // renderer, and this one shouldn't be part of that.
     bool BuildCharge()
     {
-        Shader shader = Shader.Find("Sprites/Default");
-        if (shader == null)
+        Material material = SpriteMaterial();
+        if (material == null)
         {
             Debug.LogWarning("[DragonBoss] Sprites/Default shader not found -- no charge-up effect.");
             return false;
@@ -818,8 +1148,7 @@ public class DragonBoss : MonoBehaviour
         fade.color = gradient;
 
         var renderer = go.GetComponent<ParticleSystemRenderer>();
-        chargeMaterial = new Material(shader);
-        renderer.sharedMaterial = chargeMaterial;
+        renderer.sharedMaterial = material;
         renderer.renderMode = ParticleSystemRenderMode.Stretch;
         renderer.velocityScale = 0.05f;
         renderer.lengthScale = 1f;

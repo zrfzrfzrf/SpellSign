@@ -3,6 +3,8 @@
 // Rounded dark pill with a thin border; inside it the white damage trail and,
 // on top, the fill. Both end in rounded caps. Everything is drawn from signed
 // distances in quad space, so it stays crisp at any size or distance.
+// _Sections above 1 adds thin marks that split the bar into that many equal
+// parts (the dragon's phases).
 // _Aspect (width / height of the quad) is set from script so the caps stay
 // round when the quad is stretched.
 Shader "SpellSign/HealthBar"
@@ -16,6 +18,9 @@ Shader "SpellSign/HealthBar"
         _Border ("Border thickness (fraction of height)", Range(0, 0.4)) = 0.14
         _Fill ("Fill amount", Range(0, 1)) = 1
         _Trail ("Trail amount", Range(0, 1)) = 1
+        _Sections ("Sections (marks between them, 1 = none)", Float) = 1
+        _TickColor ("Section marks", Color) = (1, 1, 1, 0.9)
+        _TickWidth ("Section mark half width (fraction of height)", Range(0, 0.3)) = 0.07
         _Aspect ("Width / height", Float) = 10
         _Alpha ("Overall opacity", Range(0, 1)) = 1
         [Enum(UnityEngine.Rendering.CompareFunction)] _ZTest ("Depth test (Always = never hidden)", Float) = 4
@@ -50,6 +55,9 @@ Shader "SpellSign/HealthBar"
                 float _Border;
                 float _Fill;
                 float _Trail;
+                float _Sections;
+                half4 _TickColor;
+                float _TickWidth;
                 float _Aspect;
                 half _Alpha;
             CBUFFER_END
@@ -129,6 +137,14 @@ Shader "SpellSign/HealthBar"
                 half3 fill = _FillColor.rgb * lerp(0.8, 1.2, saturate(input.uv.y));
                 if (_Fill > 0.0)
                     c = Over(c, fill, _FillColor.a * Coverage(Bar(p, halfWidth, _Fill)));
+
+                // Marks between the sections, on top of the fill and the empty part alike.
+                float barLeft = -halfWidth + _Border;
+                float section = 2.0 * (halfWidth - _Border) / max(_Sections, 1.0);
+                float nearest = round((p.x - barLeft) / section);
+                float tick = max(abs(p.x - barLeft - nearest * section) - _TickWidth, inner);
+                half onMark = step(0.5, nearest) * step(nearest, _Sections - 0.5);
+                c = Over(c, _TickColor.rgb, _TickColor.a * onMark * Coverage(tick));
 
                 c.a *= _Alpha;
                 return half4(c.rgb * c.a, c.a);
