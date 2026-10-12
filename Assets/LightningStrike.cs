@@ -54,7 +54,8 @@ public class LightningStrike : MonoBehaviour
         Vector3 direction = transform.forward;
         Vector3 end;
 
-        bool struck = Physics.Raycast(start, direction, out RaycastHit hit, maxRange, hitMask);
+        // Triggers don't stop a bolt: the menus' touch buttons are triggers.
+        bool struck = Physics.Raycast(start, direction, out RaycastHit hit, maxRange, hitMask, QueryTriggerInteraction.Ignore);
         EnemyTarget target = struck ? hit.collider.GetComponentInParent<EnemyTarget>() : null;
 
         // A near miss still counts: look for an enemy close beside the line, no
@@ -106,7 +107,7 @@ public class LightningStrike : MonoBehaviour
     private bool NearestEnemyAlong(Vector3 start, Vector3 direction, float distance, out RaycastHit nearest)
     {
         nearest = default;
-        int count = Physics.SphereCastNonAlloc(start, aimAssistRadius, direction, assistHits, distance, hitMask);
+        int count = Physics.SphereCastNonAlloc(start, aimAssistRadius, direction, assistHits, distance, hitMask, QueryTriggerInteraction.Ignore);
         bool found = false;
         for (int i = 0; i < count; i++)
         {

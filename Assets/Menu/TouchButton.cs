@@ -24,6 +24,8 @@ public class TouchButton : MonoBehaviour
 
     // Grey and ignores touches while false.
     public bool Interactable { get; set; } = true;
+    // Drawn brighter, to mark the option that is currently chosen.
+    public bool Highlighted { get; set; }
     // The fingertips that can press it (both index fingers).
     public Transform[] Fingertips { get; set; } = new Transform[0];
 
@@ -45,6 +47,7 @@ public class TouchButton : MonoBehaviour
 
         var box = go.AddComponent<BoxCollider>();
         box.size = new Vector3(size.x, size.y, 0.04f);
+        box.isTrigger = true; // only fingertips press it; spells fly through (the sandbox menu is up while casting)
 
         var button = go.AddComponent<TouchButton>();
         button.body = box;
@@ -99,7 +102,7 @@ public class TouchButton : MonoBehaviour
         if (plateMaterial == null) return; // no unlit shader (MenuParts logged it); buttons still work
 
         plateMaterial.color = Interactable
-            ? Color.Lerp(plateColor, Color.white, progress * 0.35f)
+            ? Color.Lerp(plateColor, Color.white, Mathf.Max(progress * 0.35f, Highlighted ? 0.5f : 0f))
             : DisabledPlate;
         label.color = Interactable ? labelColor : DisabledLabel;
 
