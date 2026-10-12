@@ -231,6 +231,9 @@ public class EnemyTarget : MonoBehaviour
 		// A hit flash cut short by deactivation would leave the model white.
 		if (flashRoutine != null) StopCoroutine(flashRoutine);
 		RestoreColors();
+		// Those are the model's own colors: put the element's back, so it
+		// blinks out looking the way it did when it died.
+		ChangeElementVisual(CurrentElement);
 
 		Died?.Invoke();
 		StartCoroutine(BlinkOut());

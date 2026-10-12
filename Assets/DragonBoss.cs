@@ -167,7 +167,7 @@ public class DragonBoss : MonoBehaviour
     [Tooltip("How far it is knocked back at the start of the stagger, in meters.")]
     public float staggerRecoil = 0.35f;
     [Tooltip("Seconds the transformation into the new element takes. Spells bounce off for all of it.")]
-    public float transformTime = 2f;
+    public float transformTime = 4f;
     [Tooltip("Seconds after the transformation before the next attack can start.")]
     public float restAfterPhaseChange = 2f;
 

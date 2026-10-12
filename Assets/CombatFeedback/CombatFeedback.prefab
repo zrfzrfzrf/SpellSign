@@ -48,7 +48,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SpellSign.CombatFeedback.EnemyHealthBars
   barMaterial: {fileID: 2100000, guid: 2df402d56570f5945b9162443b3306d8, type: 2}
   fillColor: {r: 0.89, g: 0.29, b: 0.29, a: 1}
-  size: {x: 0.8, y: 0.08}
+  size: {x: 1.2, y: 0.12}
   gap: 0.05
   heightSmoothing: 0.25
 --- !u!114 &5913125732431668736

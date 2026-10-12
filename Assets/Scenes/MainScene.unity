@@ -18138,15 +18138,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.18
+      value: 0.234
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.18
+      value: 0.234
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
       propertyPath: m_LocalScale.z
-      value: 0.18
+      value: 0.234
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: dd6d45c8f08753d4497ef97459267b08, type: 3}
       propertyPath: m_LocalPosition.x
@@ -18346,6 +18346,10 @@ MonoBehaviour:
   breathParticlesPerSecond: 200
   floorFireRadius: 2.5
   floorFireParticlesPerSecond: 120
+  staggerTime: 1
+  staggerRecoil: 0.35
+  transformTime: 4
+  restAfterPhaseChange: 2
   animator: {fileID: 1162589857}
 --- !u!4 &1162589851 stripped
 Transform:
