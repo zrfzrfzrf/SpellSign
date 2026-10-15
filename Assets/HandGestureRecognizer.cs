@@ -690,7 +690,7 @@ public class HandGestureRecognizer : MonoBehaviour
             found = true;
         }
 
-        onEnemy = found && nearest.collider.GetComponentInParent<EnemyTarget>() != null;
+        onEnemy = found && nearest.collider.GetComponentInParent<ISpellTarget>() != null;
         if (!onEnemy)
         {
             if (Time.time - lastOnEnemy > PointRearmTime) pointArmed = true;

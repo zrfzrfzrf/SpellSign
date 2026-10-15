@@ -56,7 +56,7 @@ public class LightningStrike : MonoBehaviour
 
         // Triggers don't stop a bolt: the menus' touch buttons are triggers.
         bool struck = Physics.Raycast(start, direction, out RaycastHit hit, maxRange, hitMask, QueryTriggerInteraction.Ignore);
-        EnemyTarget target = struck ? hit.collider.GetComponentInParent<EnemyTarget>() : null;
+        ISpellTarget target = struck ? hit.collider.GetComponentInParent<ISpellTarget>() : null;
 
         // A near miss still counts: look for an enemy close beside the line, no
         // further away than whatever the exact line hit (so walls still block).
@@ -65,7 +65,7 @@ public class LightningStrike : MonoBehaviour
         {
             hit = near;
             struck = true;
-            target = hit.collider.GetComponentInParent<EnemyTarget>();
+            target = hit.collider.GetComponentInParent<ISpellTarget>();
         }
 
         if (struck)
@@ -114,7 +114,7 @@ public class LightningStrike : MonoBehaviour
             RaycastHit h = assistHits[i];
             if (h.distance <= 0f) continue; // already touching at the start: no hit point to strike
             if (found && h.distance >= nearest.distance) continue;
-            if (h.collider.GetComponentInParent<EnemyTarget>() == null) continue;
+            if (h.collider.GetComponentInParent<ISpellTarget>() == null) continue;
             nearest = h;
             found = true;
         }
