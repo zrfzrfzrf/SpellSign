@@ -33589,6 +33589,9 @@ MonoBehaviour:
   menu: {fileID: 1999000004}
   showStartMenu: 1
   showSandboxButton: 1
+  showTutorialButton: 1
+  ghostHandModel: {fileID: 100048, guid: 88e2e1bfe11ec6c438b0ade27eaeded1, type: 3}
+  ghostHandMaterial: {fileID: 2100000, guid: d641a50c4fe4ee3489a64cf52b76ae79, type: 2}
   fightCastMode: 1
   menuDelay: 1.5
   debugStart: 0
