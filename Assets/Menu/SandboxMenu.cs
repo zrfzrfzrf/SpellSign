@@ -7,11 +7,10 @@ using UnityEngine;
 // one works, and EXIT. Pressing a mode button switches both hands to it at once.
 //
 // Unlike the other menus it is up while casting is on, so it stays out of the
-// hands' way: beside the player, to the left of the line they cast along (from
-// them to the Cast Target), below eye level and turned to face them. It comes
-// along when they walk off or turn to a target somewhere else. A fingertip
-// right at it reads no signs (HandGestureRecognizer.QuietPanel), and its
-// buttons are triggers, so spells fly through.
+// hands' way: beside the player, to the left of the line they cast along
+// (BesidePlayer). A fingertip right at it reads no signs
+// (HandGestureRecognizer.QuietPanel), and its buttons are triggers, so spells
+// fly through.
 //
 // Built from code like StartMenu. GameFlow adds this component itself, so it
 // needs no scene setup.
@@ -52,17 +51,12 @@ public class SandboxMenu : MonoBehaviour
     [Tooltip("How far below eye level the panel's center sits, in meters.")]
     public float heightBelowEyes = 0.45f;
 
-    const float ReanchorDistance = 0.4f; // meters the player walks before the panel comes along
-    const float ReanchorAngle = 45f;     // degrees the line to the cast target swings before it does
-    const float GlideTime = 0.3f;        // roughly how long it takes to get there, in seconds
 
     public event Action ExitPressed;
 
     Transform panel;
+    BesidePlayer placement;
     Material panelMaterial;
-    Vector3 anchor;        // where the player's head was when the panel was last placed
-    Vector3 castDirection; // level direction from there to the cast target
-    Vector3 velocity;
     TextMeshPro hint;
     TouchButton[] modeButtons;
     TouchButton exitButton;
@@ -75,7 +69,11 @@ public class SandboxMenu : MonoBehaviour
         foreach (TouchButton button in modeButtons) button.Fingertips = tips;
         exitButton.Fingertips = tips;
 
-        Place(true);
+        placement.castTarget = castTarget;
+        placement.distance = distance;
+        placement.side = side;
+        placement.heightBelowEyes = heightBelowEyes;
+        placement.PlaceNow();
         panel.gameObject.SetActive(true);
 
         HandGestureRecognizer.QuietPanel = panel;
@@ -90,56 +88,10 @@ public class SandboxMenu : MonoBehaviour
         if (HandGestureRecognizer.QuietPanel == panel) HandGestureRecognizer.QuietPanel = null;
     }
 
-    void LateUpdate()
-    {
-        if (panel != null && panel.gameObject.activeSelf) Place(false);
-    }
-
-    // Keeps the panel beside the player. Its spot is worked out from where the
-    // player stood and which way the cast target was at that moment, and only
-    // again once they have walked off or the target is somewhere else -- so
-    // the buttons hold still to be pressed. at once = no glide.
-    void Place(bool atOnce)
-    {
-        Camera cam = Camera.main;
-        if (cam == null) return;
-        Vector3 head = cam.transform.position;
-
-        // Toward the target; where the player is looking if there is none right now.
-        Vector3 toTarget = castTarget != null && castTarget.gameObject.activeInHierarchy
-            ? castTarget.position - head : cam.transform.forward;
-        toTarget.y = 0f;
-        bool haveDirection = toTarget.sqrMagnitude > 0.0001f;
-
-        Vector3 walked = head - anchor;
-        walked.y = 0f;
-        bool targetMoved = haveDirection && castTarget != null && castTarget.gameObject.activeInHierarchy
-            && Vector3.Angle(castDirection, toTarget) > ReanchorAngle;
-        if (atOnce || walked.magnitude > ReanchorDistance || targetMoved)
-        {
-            anchor = head;
-            if (haveDirection) castDirection = toTarget.normalized;
-            else if (castDirection == Vector3.zero) castDirection = Vector3.forward;
-        }
-
-        Vector3 right = Vector3.Cross(Vector3.up, castDirection);
-        Vector3 spot = anchor + castDirection * distance + right * side + Vector3.down * heightBelowEyes;
-        // The panel's +Z points away from the viewer, which is how its text reads correctly.
-        Quaternion facing = Quaternion.LookRotation((spot - anchor).normalized);
-
-        if (atOnce)
-        {
-            panel.SetPositionAndRotation(spot, facing);
-            velocity = Vector3.zero;
-            return;
-        }
-        panel.position = Vector3.SmoothDamp(panel.position, spot, ref velocity, GlideTime);
-        panel.rotation = Quaternion.Slerp(panel.rotation, facing, 1f - Mathf.Exp(-Time.deltaTime / (GlideTime * 0.5f)));
-    }
-
     void Build()
     {
         panel = new GameObject("Sandbox Menu Panel").transform;
+        placement = panel.gameObject.AddComponent<BesidePlayer>();
 
         panelMaterial = MenuParts.NewMaterial(PanelColor);
         MenuParts.NewQuad(panel, "Background", panelMaterial, PanelSize, Vector3.zero, Order);
