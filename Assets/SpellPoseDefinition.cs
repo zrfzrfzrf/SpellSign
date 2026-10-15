@@ -56,6 +56,10 @@ public class SpellPoseDefinition : ScriptableObject
              "Point With Fingers = aim exactly along your extended index finger (index knuckle -> index tip), which reads far more naturally for poses like Scissors/Lightning where you're actually pointing at something.")]
     public AimMode aimMode = AimMode.UseHandDefault;
 
+    [Header("Tutorial")]
+    [Tooltip("The tutorial's ghost hand shows this sign upside down, palm up, the way it is meant to be made. It doesn't change how the sign is recognized.")]
+    public bool shownPalmUp = false;
+
     [Header("Extra requirement")]
     [Tooltip("If enabled, this pose can only be confirmed while your palm is facing AWAY from your own head (not looking at your own palm). Uses the Head Reference / Palm Normal Axis settings on HandGestureRecognizer -- leave this off for poses where palm orientation shouldn't matter.")]
     public bool requirePalmFacingAway = false;

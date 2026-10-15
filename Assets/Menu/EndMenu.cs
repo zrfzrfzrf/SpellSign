@@ -3,7 +3,9 @@ using TMPro;
 using UnityEngine;
 
 // The end-of-level menu: a panel that appears in front of the player with the
-// result and two touch buttons. It stays where it appeared (not stuck to the
+// result and two touch buttons: RESTART, and MENU back to the start menu (with
+// its tutorial and sandbox). A NEXT LEVEL button joins them, on a row below,
+// once there is a next level. It stays where it appeared (not stuck to the
 // head), within arm's reach, upright and facing the player -- until the player
 // walks or turns away from it, when it glides back in front of them.
 //
@@ -13,6 +15,7 @@ public class EndMenu : MonoBehaviour
 {
     const int Order = 10; // sorting order of the panel's lowest layer
     static readonly Vector2 PanelSize = new Vector2(0.56f, 0.32f);
+    const float NextLevelRow = 0.1f; // the panel grows by this for the NEXT LEVEL row
     static readonly Vector2 ButtonSize = new Vector2(0.23f, 0.09f);
     static readonly Color PanelColor = new Color(0.04f, 0.05f, 0.09f, 0.9f);
     static readonly Color WonColor = new Color(0.45f, 0.95f, 0.55f);
@@ -28,10 +31,11 @@ public class EndMenu : MonoBehaviour
     public float heightBelowEyes = 0.2f;
 
     [Header("Levels")]
-    [Tooltip("Turn on once there is a next level. Even then, the button only works after a win.")]
+    [Tooltip("Turn on once there is a next level: adds the NEXT LEVEL button, which works after a win. Set before the menu is first shown.")]
     public bool nextLevelAvailable = false;
 
     public event Action RestartPressed;
+    public event Action MenuPressed;
     public event Action NextLevelPressed;
 
     Transform panel;
@@ -39,7 +43,8 @@ public class EndMenu : MonoBehaviour
     Material panelMaterial;
     TextMeshPro title;
     TouchButton restartButton;
-    TouchButton nextLevelButton;
+    TouchButton menuButton;
+    TouchButton nextLevelButton; // only once there is a next level
 
     public void Show(bool won)
     {
@@ -47,11 +52,14 @@ public class EndMenu : MonoBehaviour
 
         title.text = won ? "VICTORY" : "DEFEAT";
         title.color = won ? WonColor : LostColor;
-        nextLevelButton.Interactable = won && nextLevelAvailable;
-
         Transform[] tips = MenuParts.IndexTips(hands);
         restartButton.Fingertips = tips;
-        nextLevelButton.Fingertips = tips;
+        menuButton.Fingertips = tips;
+        if (nextLevelButton != null)
+        {
+            nextLevelButton.Interactable = won;
+            nextLevelButton.Fingertips = tips;
+        }
 
         follow.distance = distance;
         follow.heightBelowEyes = heightBelowEyes;
@@ -69,20 +77,29 @@ public class EndMenu : MonoBehaviour
         panel = new GameObject("End Menu Panel").transform;
         follow = panel.gameObject.AddComponent<MenuFollow>();
 
+        Vector2 size = PanelSize + (nextLevelAvailable ? Vector2.up * NextLevelRow : Vector2.zero);
+        float titleY = size.y * 0.5f - 0.07f;
+        float buttonsY = titleY - 0.155f;
         panelMaterial = MenuParts.NewMaterial(PanelColor);
-        MenuParts.NewQuad(panel, "Background", panelMaterial, PanelSize, Vector3.zero, Order);
+        MenuParts.NewQuad(panel, "Background", panelMaterial, size, Vector3.zero, Order);
 
-        title = MenuParts.NewText(panel, "TITLE", 0.8f, Color.white, new Vector2(PanelSize.x, 0.1f),
-                                  new Vector3(0f, 0.09f, -0.004f), Order + 4);
+        title = MenuParts.NewText(panel, "TITLE", 0.8f, Color.white, new Vector2(size.x, 0.1f),
+                                  new Vector3(0f, titleY, -0.004f), Order + 4);
 
         restartButton = TouchButton.Create(panel, "RESTART", ButtonSize,
                                            new Color(0.2f, 0.45f, 0.9f, 0.95f), Order + 1);
-        restartButton.transform.localPosition = new Vector3(-0.13f, -0.065f, 0f);
+        restartButton.transform.localPosition = new Vector3(-0.13f, buttonsY, 0f);
         restartButton.Pressed += () => RestartPressed?.Invoke();
 
+        menuButton = TouchButton.Create(panel, "MENU", ButtonSize,
+                                        new Color(0.4f, 0.42f, 0.5f, 0.95f), Order + 1);
+        menuButton.transform.localPosition = new Vector3(0.13f, buttonsY, 0f);
+        menuButton.Pressed += () => MenuPressed?.Invoke();
+
+        if (!nextLevelAvailable) return;
         nextLevelButton = TouchButton.Create(panel, "NEXT LEVEL", ButtonSize,
                                              new Color(0.25f, 0.65f, 0.4f, 0.95f), Order + 1);
-        nextLevelButton.transform.localPosition = new Vector3(0.13f, -0.065f, 0f);
+        nextLevelButton.transform.localPosition = new Vector3(0f, buttonsY - NextLevelRow, 0f);
         nextLevelButton.Pressed += () => NextLevelPressed?.Invoke();
     }
 

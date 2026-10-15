@@ -24,5 +24,6 @@ MonoBehaviour:
   poseConfirmDelay: 0.2
   castCooldown: 0.4
   aimMode: 0
+  shownPalmUp: 1
   requirePalmFacingAway: 0
   requirePalmFacingDown: 0

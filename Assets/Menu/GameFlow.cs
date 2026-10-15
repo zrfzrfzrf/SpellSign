@@ -12,6 +12,10 @@ using UnityEngine;
 // While the end menu is up the fight is frozen: spell recognition is off, the
 // boss has stopped attacking and every projectile is gone.
 //
+// The start menu's TUTORIAL button runs the tutorial (Tutorial) first: the
+// player learns the three signs and which element beats which on floating
+// crystals, and the fight starts when they're done.
+//
 // The start menu's SANDBOX button leads to a practice mode instead: the dragon
 // stands there without attacking, comes back a moment after it dies, and a
 // panel (SandboxMenu) switches between the ways of casting. EXIT returns to
@@ -19,7 +23,7 @@ using UnityEngine;
 // whatever was last tried in the sandbox.
 public class GameFlow : MonoBehaviour
 {
-    public enum State { Playing, Won, Lost, NotStarted, Sandbox }
+    public enum State { Playing, Won, Lost, NotStarted, Sandbox, Tutorial }
     public enum DebugStart { None, Won, Lost }
 
     [Header("What the level is made of")]
@@ -35,6 +39,14 @@ public class GameFlow : MonoBehaviour
     public bool showStartMenu = true;
     [Tooltip("Put a SANDBOX button on the start menu, for trying the ways of casting on a dragon that doesn't fight back. Turn off for the museum.")]
     public bool showSandboxButton = true;
+    [Tooltip("Put a TUTORIAL button on the start menu: the three signs and the elements, on crystals, before the fight.")]
+    public bool showTutorialButton = true;
+
+    [Header("Tutorial")]
+    [Tooltip("Meta's OculusHand_R model, for the tutorial's ghost hand.")]
+    public GameObject ghostHandModel;
+    [Tooltip("Material for the ghost hand (the Interaction SDK's OculusHand).")]
+    public Material ghostHandMaterial;
 
     [Header("Casting")]
     [Tooltip("How spells are cast in the fight. Push = hold a sign, then push the hand out or swing it down. The sandbox starts on this one too.")]
@@ -52,6 +64,7 @@ public class GameFlow : MonoBehaviour
 
     StartMenu startMenu;
     SandboxMenu sandboxMenu;
+    Tutorial tutorial;
     Coroutine sandboxRevive;
 
     void OnEnable()
@@ -59,6 +72,7 @@ public class GameFlow : MonoBehaviour
         boss.Died += OnBossDied;
         player.Died += OnPlayerDied;
         menu.RestartPressed += Restart;
+        menu.MenuPressed += BackToMenu;
     }
 
     void OnDisable()
@@ -66,6 +80,7 @@ public class GameFlow : MonoBehaviour
         boss.Died -= OnBossDied;
         player.Died -= OnPlayerDied;
         menu.RestartPressed -= Restart;
+        menu.MenuPressed -= BackToMenu;
     }
 
     void Start()
@@ -83,18 +98,72 @@ public class GameFlow : MonoBehaviour
         SetHandsActive(false); // touching Play can't cast a spell
         boss.gameObject.SetActive(false);
 
-        startMenu = gameObject.AddComponent<StartMenu>();
-        startMenu.hands = hands;
-        startMenu.showSandbox = showSandboxButton;
-        startMenu.PlayPressed += Play;
-        startMenu.SandboxPressed += EnterSandbox;
+        if (startMenu == null)
+        {
+            startMenu = gameObject.AddComponent<StartMenu>();
+            startMenu.hands = hands;
+            startMenu.showSandbox = showSandboxButton;
+            startMenu.showTutorial = showTutorialButton;
+            startMenu.PlayPressed += Play;
+            startMenu.TutorialPressed += EnterTutorial;
+            startMenu.SandboxPressed += EnterSandbox;
+        }
         startMenu.Show();
+    }
+
+    // The end menu's MENU: from a finished fight back to the start menu.
+    void BackToMenu()
+    {
+        menu.Hide();
+        ClearProjectiles();
+        dragon.StopAttacking();
+        WaitForPlay(); // switches the hands off and puts the dragon away
     }
 
     void Play()
     {
         startMenu.Hide();
         Restart(); // brings the dragon in, in front of the player, at full health
+    }
+
+    // The tutorial: no dragon yet, just crystals. It ends in the fight, or back
+    // at the start menu if staff press its EXIT.
+    void EnterTutorial()
+    {
+        startMenu.Hide();
+        ClearProjectiles();
+        player.Restore();
+        boss.gameObject.SetActive(false);
+
+        if (tutorial == null)
+        {
+            tutorial = gameObject.AddComponent<Tutorial>();
+            tutorial.hands = hands;
+            tutorial.ghostHandModel = ghostHandModel;
+            tutorial.ghostHandMaterial = ghostHandMaterial;
+            tutorial.Finished += FinishTutorial;
+            tutorial.ExitPressed += ExitTutorial;
+        }
+
+        HandGestureRecognizer.Mode = fightCastMode;
+        SetHandsActive(true);
+        Current = State.Tutorial;
+        tutorial.Begin();
+    }
+
+    void FinishTutorial()
+    {
+        tutorial.End();
+        Restart(); // brings the dragon in, in front of the player: the fight starts
+    }
+
+    void ExitTutorial()
+    {
+        tutorial.End();
+        SetHandsActive(false);
+        ClearProjectiles();
+        Current = State.NotStarted;
+        startMenu.Show();
     }
 
     // Practice: the same dragon, but it never attacks, and the sandbox menu is up.
