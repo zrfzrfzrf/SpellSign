@@ -18,7 +18,7 @@ using UnityEngine.UI;
 //
 // Lives on the root of the enemy; spells find it with GetComponentInParent,
 // so the hit collider can be on any child part of the model.
-public class EnemyTarget : MonoBehaviour
+public class EnemyTarget : MonoBehaviour, ISpellTarget
 {
 	[Header("Flash")]
 	public float flashDuration = 0.15f;
