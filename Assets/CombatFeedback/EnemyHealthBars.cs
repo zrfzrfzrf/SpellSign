@@ -7,7 +7,8 @@ namespace SpellSign.CombatFeedback
     // player. It sits just over the enemy's head (or over the top of its model,
     // if it has no Head Collider) and follows it as it moves or animates. Drawn
     // on top of everything so wings can't hide it. Marks on the bar show where
-    // the enemy's phases change.
+    // the enemy's phases change. Beside it, a small element wheel shows which
+    // element the enemy is now and what beats it (ElementWheel).
     //
     // Replaces the boss bar that used to be stuck in the HUD. Lives on the
     // CombatFeedback prefab; needs the HealthBar material.
@@ -23,11 +24,18 @@ namespace SpellSign.CombatFeedback
         [SerializeField] float gap = 0.05f;
         [Tooltip("How quickly the bar follows the model's height as it animates, in seconds.")]
         [SerializeField] float heightSmoothing = 0.25f;
+        [Tooltip("Show the element wheel to the right of the bar.")]
+        [SerializeField] bool showElementWheel = true;
+        [Tooltip("The wheel's size: meters from its middle to each element's dot.")]
+        [SerializeField] float wheelRadius = 0.12f;
+        [Tooltip("Gap between the end of the bar and the wheel's edge, in meters.")]
+        [SerializeField] float wheelGap = 0.12f;
 
         class Tracked
         {
             public EnemyTarget enemy;
             public HealthBarView bar;
+            public ElementWheel wheel;
             public float height;
             public float heightVelocity;
         }
@@ -52,6 +60,7 @@ namespace SpellSign.CombatFeedback
                 {
                     enemy = enemy,
                     bar = bar,
+                    wheel = showElementWheel ? ElementWheel.Create(enemy.name + " ElementWheel", wheelRadius, false, 30) : null,
                     height = float.NaN
                 });
             }
@@ -68,6 +77,7 @@ namespace SpellSign.CombatFeedback
                 Bounds bounds = default;
                 bool show = t.enemy != null && t.enemy.isActiveAndEnabled && t.enemy.TryGetVisibleBounds(out bounds);
                 t.bar.gameObject.SetActive(show);
+                if (t.wheel != null) t.wheel.gameObject.SetActive(show);
                 if (!show) continue;
 
                 if (t.enemy.TryGetHeadBounds(out Bounds head)) bounds = head;
@@ -82,13 +92,26 @@ namespace SpellSign.CombatFeedback
                     t.bar.transform.rotation = Quaternion.LookRotation(position - cam.transform.position);
 
                 t.bar.SetFraction((float)t.enemy.CurrentHealth / t.enemy.maxHealth);
+
+                if (t.wheel != null)
+                {
+                    // To the right of the bar as the player sees it, turned the same way.
+                    Transform barTransform = t.bar.transform;
+                    t.wheel.transform.SetPositionAndRotation(
+                        barTransform.position + barTransform.right * (size.x * 0.5f + wheelGap + ElementWheel.OuterRadius(wheelRadius)),
+                        barTransform.rotation);
+                    t.wheel.ShowCurrent(t.enemy.CurrentElement);
+                }
             }
         }
 
         void OnDestroy()
         {
             foreach (Tracked t in tracked)
+            {
                 if (t.bar != null) Destroy(t.bar.gameObject);
+                if (t.wheel != null) Destroy(t.wheel.gameObject);
+            }
         }
     }
 }
