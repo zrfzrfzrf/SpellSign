@@ -120,7 +120,7 @@ public class GameFlow : MonoBehaviour
         WaitForPlay(); // switches the hands off and puts the dragon away
     }
 
-    void Play()
+    public void Play()
     {
         startMenu.Hide();
         Restart(); // brings the dragon in, in front of the player, at full health
