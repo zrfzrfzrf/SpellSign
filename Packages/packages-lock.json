@@ -131,7 +131,7 @@
     },
     "com.unity.burst": {
       "version": "2.0.0",
-      "depth": 2,
+      "depth": 1,
       "source": "builtin",
       "dependencies": {}
     },
@@ -382,6 +382,15 @@
         "com.unity.xr.legacyinputhelpers": "2.1.2"
       },
       "url": "https://packages.unity.com"
+    },
+    "jp.keijiro.apriltag": {
+      "version": "1.0.3",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.burst": "1.6.5"
+      },
+      "url": "https://registry.npmjs.com"
     },
     "com.unity.modules.accessibility": {
       "version": "1.0.0",
