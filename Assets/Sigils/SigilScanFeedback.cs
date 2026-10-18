@@ -252,7 +252,9 @@ namespace SpellSign.Sigils
 
         void UpdateGuide()
         {
-            if (!showScanGuide || recognizer == null)
+            // The marks show the centre region of the camera picture; when the
+            // recognizer reads the whiteboard instead, they would point at the wrong place.
+            if (!showScanGuide || recognizer == null || recognizer.CropsToBoard)
             {
                 if (guide != null) guide.SetActive(false);
                 return;
@@ -479,6 +481,7 @@ namespace SpellSign.Sigils
                 $"ink {r.AreaFraction:0.000}   streak {recognizer.CandidateStreak}/{recognizer.FramesToConfirm}   " +
                 $"declared {recognizer.Declared}" +
                 (recognizer.RequireBoardTags && recognizer.Gate != null ? $"\nboard {recognizer.Gate.Describe()}" : "") +
+                (recognizer.CropStatus != null ? $"\ncrop {recognizer.CropStatus}" : "") +
                 (string.IsNullOrEmpty(r.Reason) ? "" : $"\n{r.Reason}");
         }
     }
