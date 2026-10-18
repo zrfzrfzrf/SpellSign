@@ -10,15 +10,17 @@
 // worker threads but the call waits for the result), so DetectMs is worth watching
 // on the headset.
 //
-// Only the tag IDs are used here. The library also estimates each tag's pose, which
-// needs a field of view and a tag size; the values below are placeholders and the
-// pose is thrown away. They matter once the board crop is built on top of this.
+// It talks to the library's low-level detector instead of the TagDetector wrapper:
+// the wrapper only returns each tag's 3D pose, while BoardCropper needs the pixel
+// position of every tag corner. The IDs decide whether the gate opens; the corners
+// (CornerX / CornerY) are for the crop.
 
 using System;
 using System.Diagnostics;
-using AprilTag;
+using AprilTag.Interop;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
+using JobsUtility = Unity.Jobs.LowLevel.Unsafe.JobsUtility;
 
 namespace SpellSign.Sigils
 {
@@ -26,14 +28,10 @@ namespace SpellSign.Sigils
     {
         public const int BoardTags = 4;
 
-        const float AssumedFov = 80f;       // degrees, horizontal. Placeholder, pose is unused
-        const float AssumedTagSize = 0.04f; // meters. Placeholder, pose is unused
-
         // ---- tuning (the recognizer copies its Inspector values here) --------
         public int MinTags = 1;          // tags needed in one frame to count as "board in view"
         public float GraceSeconds = 1f;  // keep the gate open this long after the tags are lost
         public int Decimation = 2;       // detector runs at 1/Decimation resolution: faster, less sensitive
-        public bool VerboseLog = true;   // one status line per second; open/close changes are always logged
 
         // ---- results of the latest frame -------------------------------------
         public bool IsOpen { get; private set; }
@@ -42,11 +40,26 @@ namespace SpellSign.Sigils
         public int OtherTagCount { get; private set; }  // tags seen with some other ID, ignored
         public float DetectMs { get; private set; }     // how long the last detection took
 
-        TagDetector detector;
+        // Tag corners of the latest frame, for the tags with TagSeen[id] set. Corner k of
+        // tag id is at index id * 4 + k, in the library's order: counter-clockwise around
+        // the tag, starting at the bottom-left corner of the tag when it is upright.
+        // Pixel coordinates in the detector's picture: origin top-left, y down. That
+        // picture is the camera buffer flipped upside down, so picture row y is buffer
+        // row (height - 1 - y).
+        public readonly bool[] TagSeen = new bool[BoardTags];
+        public readonly double[] CornerX = new double[BoardTags * 4];
+        public readonly double[] CornerY = new double[BoardTags * 4];
+
+        Detector detector;
+        Family family;
+        ImageU8 image;
         int detectorWidth, detectorHeight, detectorDecimation;
 
+        // Detection quality of the tag kept for each ID this frame, to pick the better
+        // one if the same ID shows up twice.
+        readonly float[] margins = new float[BoardTags];
+
         readonly Stopwatch stopwatch = new Stopwatch();
-        float nextLogTime;
 
         // When the number of seen tags last reached MinTags. Used by Decide().
         float lastQualifiedTime = float.NegativeInfinity;
@@ -58,16 +71,39 @@ namespace SpellSign.Sigils
             EnsureDetector(width, height);
 
             stopwatch.Restart();
-            detector.ProcessImage(frame, AssumedFov, AssumedTagSize);
+            FillImage(frame, width, height);
+
+            Array.Clear(TagSeen, 0, BoardTags);
+            int mask = 0, other = 0;
+
+            using (DetectionArray detections = detector.Detect(image))
+            {
+                for (int i = 0; i < detections.Length; i++)
+                {
+                    ref Detection d = ref detections[i];
+                    int id = d.ID;
+
+                    if (id < 0 || id >= BoardTags)
+                    {
+                        other++;
+                        continue;
+                    }
+
+                    // Same ID twice in one frame (a false detection): keep the surer one.
+                    if (TagSeen[id] && d.DecisionMargin <= margins[id]) continue;
+
+                    TagSeen[id] = true;
+                    margins[id] = d.DecisionMargin;
+                    mask |= 1 << id;
+                    StoreCorner(id, 0, d.Corner1);
+                    StoreCorner(id, 1, d.Corner2);
+                    StoreCorner(id, 2, d.Corner3);
+                    StoreCorner(id, 3, d.Corner4);
+                }
+            }
+
             stopwatch.Stop();
             DetectMs = (float)stopwatch.Elapsed.TotalMilliseconds;
-
-            int mask = 0, other = 0;
-            foreach (TagPose tag in detector.DetectedTags)
-            {
-                if (tag.ID >= 0 && tag.ID < BoardTags) mask |= 1 << tag.ID;
-                else other++;
-            }
 
             SeenMask = mask;
             SeenCount = CountBits(mask);
@@ -78,12 +114,6 @@ namespace SpellSign.Sigils
 
             if (IsOpen != wasOpen)
                 Debug.Log("[BoardGate] " + (IsOpen ? "OPEN" : "CLOSED") + "  " + Describe());
-
-            if (VerboseLog && now >= nextLogTime)
-            {
-                nextLogTime = now + 1f;
-                Debug.Log("[BoardGate] " + Describe());
-            }
         }
 
         // Open while at least MinTags tags are seen, and for GraceSeconds after that,
@@ -121,6 +151,28 @@ namespace SpellSign.Sigils
             return n;
         }
 
+        void StoreCorner(int id, int k, (double x, double y) corner)
+        {
+            CornerX[id * 4 + k] = corner.x;
+            CornerY[id * 4 + k] = corner.y;
+        }
+
+        // Copies the camera frame into the detector's grey picture, upside down (the
+        // camera buffer starts at the bottom row, the detector expects the top row
+        // first). Uses the green channel, which is what the library's own converter does.
+        void FillImage(ReadOnlySpan<Color32> frame, int width, int height)
+        {
+            Span<byte> dst = image.Buffer;
+            int stride = image.Stride;
+
+            for (int y = 0; y < height; y++)
+            {
+                int src = y * width;
+                int row = (height - 1 - y) * stride;
+                for (int x = 0; x < width; x++) dst[row + x] = frame[src + x].g;
+            }
+        }
+
         // The detector allocates native buffers for one image size, so it is rebuilt
         // when the camera resolution or the decimation setting changes.
         void EnsureDetector(int width, int height)
@@ -131,18 +183,38 @@ namespace SpellSign.Sigils
                 && Decimation == detectorDecimation)
                 return;
 
-            detector?.Dispose();
-            detector = new TagDetector(width, height, Decimation);
+            DisposeDetector();
+
+            detector = Detector.Create();
+            family = Family.CreateTagStandard41h12();
+            image = ImageU8.Create(width, height);
+
+            detector.ThreadCount = Mathf.Max(1, JobsUtility.JobWorkerCount);
+            detector.QuadDecimate = Decimation;
+            detector.AddFamily(family);
+
             detectorWidth = width;
             detectorHeight = height;
             detectorDecimation = Decimation;
             Debug.Log($"[BoardGate] detector created {width}x{height}, decimation {Decimation}");
         }
 
-        public void Dispose()
+        void DisposeDetector()
         {
-            detector?.Dispose();
+            if (detector != null)
+            {
+                if (family != null) detector.RemoveFamily(family);
+                detector.Dispose();
+            }
+
+            family?.Dispose();
+            image?.Dispose();
+
             detector = null;
+            family = null;
+            image = null;
         }
+
+        public void Dispose() => DisposeDetector();
     }
 }

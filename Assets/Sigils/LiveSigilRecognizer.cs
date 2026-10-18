@@ -5,12 +5,15 @@
 //   1. grabs the camera frame
 //   2. asks BoardTagGate whether the whiteboard (its AprilTags) is in view, and
 //      stops here if not -- shapes elsewhere in the room are ignored
-//   3. crops to the centre region and downsamples to a small grayscale buffer
+//   3. cuts the whiteboard's drawing area out of the frame with BoardCropper and
+//      straightens it into a small grayscale buffer (if the tags don't allow that,
+//      it stops here too). With cropToBoard off it takes the centre region of the
+//      frame instead
 //   4. runs SigilClassifier
 //   5. requires N consecutive agreeing results before declaring a shape
 //   6. fires OnSigilRecognized once, on the transition
 //
-// The debounce in step 4 is the thing that makes it usable: a raw per-frame
+// The debounce in step 5 is the thing that makes it usable: a raw per-frame
 // classification flickers between classes while the camera is moving. Holding the
 // shape steady for half a second is also the natural physical gesture.
 
@@ -71,14 +74,35 @@ namespace SpellSign.Sigils
         [Tooltip("Tag detection runs at 1/this resolution. Higher = faster but misses small or far tags.")]
         [Range(1, 4)][SerializeField] int tagDecimation = 2;
 
+        [Header("Whiteboard crop")]
+        [Tooltip("Classify only the whiteboard's drawing area, cut out and straightened using the tags. Off = classify the centre of the camera picture. Needs Require Board Tags.")]
+        [SerializeField] bool cropToBoard = true;
+        [Tooltip("Writing surface width, left to right, in cm.")]
+        [SerializeField] float boardWidthCm = 27.5f;
+        [Tooltip("Writing surface height, top to bottom, in cm.")]
+        [SerializeField] float boardHeightCm = 21f;
+        [Tooltip("Side of the whole printed tag in cm, all of its 9 x 9 cells (the detector itself only reports the central 5 x 5). Measure the print, not the file.")]
+        [SerializeField] float tagSizeCm = 4f;
+        [Tooltip("Gap between a printed tag's edge and the board edge, in cm. 0 = stuck right up to the edge.")]
+        [SerializeField] float tagEdgeGapCm = 0f;
+        [Tooltip("Shrinks the drawing area on all sides, in cm. 0 = the rectangle between the tags' inner edges.")]
+        [SerializeField] float drawMarginCm = 0f;
+        [Tooltip("Tags (of 4) that must be seen at once to cut out the drawing area. 1-2 tags only fix the board position roughly.")]
+        [Range(1, 4)][SerializeField] int cropMinTags = 3;
+        [Tooltip("Largest distance, in camera pixels, between a tag corner and where the fitted board puts it. Above it the frame is dropped as a bad detection.")]
+        [SerializeField] float maxCornerErrorPx = 4f;
+        [Tooltip("The drawing area's shortest side must be at least this many camera pixels long, otherwise the board is too far away.")]
+        [SerializeField] float minBoardEdgePx = 40f;
+
         [Header("Debug")]
-        [Tooltip("Log the raw classifier result and the board gate state about once a second (adb logcat -s Unity), for tuning the thresholds above.")]
+        [Tooltip("Log the raw classifier result about once a second (adb logcat -s Unity), for tuning the thresholds above.")]
         [SerializeField] bool logRawResults = true;
 
         public event Action<SigilResult> OnSigilRecognized;
 
         readonly SigilClassifier classifier = new SigilClassifier();
         BoardTagGate gate;
+        BoardCropper cropper;
 
         byte[] gray;
         int grayWidth, grayHeight;
@@ -153,7 +177,29 @@ namespace SpellSign.Sigils
                 return;
             }
 
-            BuildGrayBuffer(colors, res);
+            if (CropsToBoard)
+            {
+                // The tags are there but don't pin the board down well enough (too few,
+                // too far, too slanted, or a bad detection): same as no board.
+                if (!CropToBoard(colors, res))
+                {
+                    lastResult = new SigilResult { Reason = "no usable board crop: " + cropper.Reason };
+
+                    if (logRawResults && Time.time >= nextRawLogTime)
+                    {
+                        nextRawLogTime = Time.time + 1f;
+                        Debug.Log("[LiveSigil] " + lastResult.Reason);
+                    }
+
+                    UpdateStability(lastResult);
+                    UpdateUi(lastResult);
+                    return;
+                }
+            }
+            else
+            {
+                BuildGrayBuffer(colors, res);
+            }
 
             var result = classifier.Classify(gray, grayWidth, grayHeight);
             lastResult = result;
@@ -193,10 +239,35 @@ namespace SpellSign.Sigils
             gate.MinTags = minTags;
             gate.GraceSeconds = gateGraceSeconds;
             gate.Decimation = tagDecimation;
-            gate.VerboseLog = logRawResults;
 
             gate.Update(colors.AsReadOnlySpan(), res.x, res.y, Time.time);
             return gate.IsOpen;
+        }
+
+        // Cuts the drawing area out of the frame (see BoardCropper) and makes that the
+        // picture the classifier looks at. Needs the gate to have run on this frame.
+        bool CropToBoard(NativeArray<Color32> colors, Vector2Int res)
+        {
+            cropper ??= new BoardCropper();
+            cropper.BoardWidthCm = boardWidthCm;
+            cropper.BoardHeightCm = boardHeightCm;
+            cropper.TagSizeCm = tagSizeCm;
+            cropper.TagEdgeGapCm = tagEdgeGapCm;
+            cropper.DrawMarginCm = drawMarginCm;
+            cropper.MinTags = cropMinTags;
+            cropper.OutputWidth = analysisWidth;
+            cropper.MaxCornerErrorPx = maxCornerErrorPx;
+            cropper.MinEdgePx = minBoardEdgePx;
+
+            if (!cropper.TryCrop(gate, colors.AsReadOnlySpan(), res.x, res.y)) return false;
+
+            if (grayWidth != cropper.OutWidth || grayHeight != cropper.OutHeight)
+                maskTexture = null; // force rebuild
+
+            gray = cropper.Gray;
+            grayWidth = cropper.OutWidth;
+            grayHeight = cropper.OutHeight;
+            return true;
         }
 
         void BuildGrayBuffer(NativeArray<Color32> colors, Vector2Int res)
@@ -271,6 +342,7 @@ namespace SpellSign.Sigils
                     $"ink:    {result.InkPixels} px  ({result.AreaFraction:0.000})\n" +
                     $"streak: {candidateStreak}/{framesToConfirm}\n" +
                     (gate != null && requireBoardTags ? "board:  " + gate.Describe() + "\n" : "") +
+                    (cropper != null && CropsToBoard ? "crop:   " + cropper.Describe() + "\n" : "") +
                     (string.IsNullOrEmpty(result.Reason) ? "" : "why:    " + result.Reason);
             }
         }
@@ -314,6 +386,8 @@ namespace SpellSign.Sigils
         public SigilType Candidate => candidate;
         public bool RequireBoardTags => requireBoardTags;
         public BoardTagGate Gate => gate;  // null until the first frame arrives
+        public bool CropsToBoard => requireBoardTags && cropToBoard;
+        public string CropStatus => cropper != null && CropsToBoard ? cropper.Describe() : null;
         public float RoiFraction => roiFraction;
         public PassthroughCameraAccess CameraAccess => cameraAccess;
         public int CandidateStreak => candidateStreak;

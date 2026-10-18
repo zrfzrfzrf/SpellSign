@@ -36518,6 +36518,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: SigilScanner
       objectReference: {fileID: 0}
+    - target: {fileID: 969006066784989378, guid: e812678ad30db874a848d71c18e280ac, type: 3}
+      propertyPath: cropMinTags
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 1325186410090366536, guid: e812678ad30db874a848d71c18e280ac, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
