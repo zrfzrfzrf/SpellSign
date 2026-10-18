@@ -478,6 +478,7 @@ namespace SpellSign.Sigils
                 $"centre {r.CentreInk:0.00}   contrast {r.Contrast}   dark {r.DarkFraction:0.00}\n" +
                 $"ink {r.AreaFraction:0.000}   streak {recognizer.CandidateStreak}/{recognizer.FramesToConfirm}   " +
                 $"declared {recognizer.Declared}" +
+                (recognizer.RequireBoardTags && recognizer.Gate != null ? $"\nboard {recognizer.Gate.Describe()}" : "") +
                 (string.IsNullOrEmpty(r.Reason) ? "" : $"\n{r.Reason}");
         }
     }

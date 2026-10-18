@@ -3,10 +3,12 @@
 //
 // Every EvaluationsPerSecond frames it:
 //   1. grabs the camera frame
-//   2. crops to the centre region and downsamples to a small grayscale buffer
-//   3. runs SigilClassifier
-//   4. requires N consecutive agreeing results before declaring a shape
-//   5. fires OnSigilRecognized once, on the transition
+//   2. asks BoardTagGate whether the whiteboard (its AprilTags) is in view, and
+//      stops here if not -- shapes elsewhere in the room are ignored
+//   3. crops to the centre region and downsamples to a small grayscale buffer
+//   4. runs SigilClassifier
+//   5. requires N consecutive agreeing results before declaring a shape
+//   6. fires OnSigilRecognized once, on the transition
 //
 // The debounce in step 4 is the thing that makes it usable: a raw per-frame
 // classification flickers between classes while the camera is moving. Holding the
@@ -59,13 +61,24 @@ namespace SpellSign.Sigils
         [SerializeField] float minAreaFraction = 0.004f;
         [SerializeField] bool rejectBorderBlobs = true;
 
+        [Header("Whiteboard gate")]
+        [Tooltip("Only recognise shapes while the whiteboard's corner AprilTags are in view. Off = recognise everywhere, as before.")]
+        [SerializeField] bool requireBoardTags = true;
+        [Tooltip("Corner tags (of 4) that must be seen at once. 1 = any tag is enough.")]
+        [Range(1, 4)][SerializeField] int minTags = 1;
+        [Tooltip("Keep recognising this long after the tags are lost, in seconds. Covers a hand or a shake blocking the tags for a moment.")]
+        [SerializeField] float gateGraceSeconds = 1f;
+        [Tooltip("Tag detection runs at 1/this resolution. Higher = faster but misses small or far tags.")]
+        [Range(1, 4)][SerializeField] int tagDecimation = 2;
+
         [Header("Debug")]
-        [Tooltip("Log the raw classifier result about once a second (adb logcat -s Unity), for tuning the thresholds above.")]
+        [Tooltip("Log the raw classifier result and the board gate state about once a second (adb logcat -s Unity), for tuning the thresholds above.")]
         [SerializeField] bool logRawResults = true;
 
         public event Action<SigilResult> OnSigilRecognized;
 
         readonly SigilClassifier classifier = new SigilClassifier();
+        BoardTagGate gate;
 
         byte[] gray;
         int grayWidth, grayHeight;
@@ -94,6 +107,8 @@ namespace SpellSign.Sigils
         }
 
         void OnValidate() => ApplyThresholds();
+
+        void OnDestroy() => gate?.Dispose();
 
         // Fallback so the component works without Inspector wiring when it sits
         // next to PassthroughCameraAccess (as it does on SigilScanner).
@@ -125,7 +140,20 @@ namespace SpellSign.Sigils
             if (Time.time < nextEvalTime) return;
             nextEvalTime = Time.time + 1f / Mathf.Max(0.5f, evaluationsPerSecond);
 
-            if (!BuildGrayBuffer()) return;
+            if (!TryGetFrame(out NativeArray<Color32> colors, out Vector2Int res)) return;
+
+            // No whiteboard in view: nothing to classify. Feeding "no shape" into the
+            // debounce also resets a declared shape, so it can fire again once the
+            // board is back.
+            if (requireBoardTags && !BoardInView(colors, res))
+            {
+                lastResult = new SigilResult { Reason = "no whiteboard tags" };
+                UpdateStability(lastResult);
+                UpdateUi(lastResult);
+                return;
+            }
+
+            BuildGrayBuffer(colors, res);
 
             var result = classifier.Classify(gray, grayWidth, grayHeight);
             lastResult = result;
@@ -141,12 +169,12 @@ namespace SpellSign.Sigils
             UpdateMaskPreview();
         }
 
-        bool BuildGrayBuffer()
+        bool TryGetFrame(out NativeArray<Color32> colors, out Vector2Int res)
         {
-            var res = cameraAccess.CurrentResolution;
+            colors = default;
+            res = cameraAccess.CurrentResolution;
             if (res.x <= 0 || res.y <= 0) return false;
 
-            NativeArray<Color32> colors;
             try { colors = cameraAccess.GetColors(); }
             catch (Exception e)
             {
@@ -154,8 +182,25 @@ namespace SpellSign.Sigils
                 return false;
             }
 
-            if (!colors.IsCreated || colors.Length < res.x * res.y) return false;
+            return colors.IsCreated && colors.Length >= res.x * res.y;
+        }
 
+        // Runs the AprilTag detector on the full frame (not the cropped ROI: the tags
+        // sit in the board's corners, which can be outside the centre region).
+        bool BoardInView(NativeArray<Color32> colors, Vector2Int res)
+        {
+            gate ??= new BoardTagGate();
+            gate.MinTags = minTags;
+            gate.GraceSeconds = gateGraceSeconds;
+            gate.Decimation = tagDecimation;
+            gate.VerboseLog = logRawResults;
+
+            gate.Update(colors.AsReadOnlySpan(), res.x, res.y, Time.time);
+            return gate.IsOpen;
+        }
+
+        void BuildGrayBuffer(NativeArray<Color32> colors, Vector2Int res)
+        {
             // centred region of interest
             int roiW = Mathf.Max(16, (int)(res.x * roiFraction));
             int roiH = Mathf.Max(16, (int)(res.y * roiFraction));
@@ -185,8 +230,6 @@ namespace SpellSign.Sigils
                     gray[dstRow + x] = (byte)((c.r * 77 + c.g * 150 + c.b * 29) >> 8);
                 }
             }
-
-            return true;
         }
 
         void UpdateStability(SigilResult result)
@@ -227,6 +270,7 @@ namespace SpellSign.Sigils
                     $"centre: {result.CentreInk:0.00}  contrast {result.Contrast}  dark {result.DarkFraction:0.00}\n" +
                     $"ink:    {result.InkPixels} px  ({result.AreaFraction:0.000})\n" +
                     $"streak: {candidateStreak}/{framesToConfirm}\n" +
+                    (gate != null && requireBoardTags ? "board:  " + gate.Describe() + "\n" : "") +
                     (string.IsNullOrEmpty(result.Reason) ? "" : "why:    " + result.Reason);
             }
         }
@@ -268,6 +312,8 @@ namespace SpellSign.Sigils
         public SigilResult LastResult => lastResult;
         public SigilType Declared => declared;
         public SigilType Candidate => candidate;
+        public bool RequireBoardTags => requireBoardTags;
+        public BoardTagGate Gate => gate;  // null until the first frame arrives
         public float RoiFraction => roiFraction;
         public PassthroughCameraAccess CameraAccess => cameraAccess;
         public int CandidateStreak => candidateStreak;
