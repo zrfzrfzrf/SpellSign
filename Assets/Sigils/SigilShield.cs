@@ -13,6 +13,8 @@ namespace SpellSign.Sigils
     // shader may be stripped from device builds.
     public class SigilShield : MonoBehaviour
     {
+
+
         static readonly int FadeId = Shader.PropertyToID("_Fade");
 
         [Tooltip("Bubble radius around the head, in meters. Shots are stopped here.")]
@@ -38,16 +40,39 @@ namespace SpellSign.Sigils
         float age;
         float remaining;
 
+        ColorChanger bubbleVisual;
+        public ColorChanger bubbleVisualPrefab;
+
+        public Element element = Element.Fire;
+
         public static bool IsUp => active != null && active.remaining > 0f;
 
         // Bubble radius in meters, for effects that should stop at its edge.
         public static float Radius => active != null ? active.radius : 0f;
 
-        // True while the shield is up and `point` has reached its edge. The shot
-        // should then be destroyed without doing damage.
-        public static bool Blocks(Vector3 point)
+		public static SigilShield Instance { get; private set; }
+
+		void Awake()
+		{
+			if (Instance != null && Instance != this)
+			{
+				Destroy(gameObject);
+				return;
+			}
+			Instance = this;
+			DontDestroyOnLoad(gameObject); // optional: survive scene loads
+		}
+
+		// True while the shield is up and `point` has reached its edge. The shot
+		// should then be destroyed without doing damage.
+		public static bool Blocks(Vector3 point, Element element)
         {
             if (!IsUp) return false;
+
+            //Debug.Log("Element comparison: " + Instance.element + " == " + element);
+
+            if (Instance.element != element) return false;
+
             Camera cam = Camera.main;
             if (cam == null) return false;
 
@@ -77,16 +102,32 @@ namespace SpellSign.Sigils
             if (material != null) Destroy(material);
         }
 
-        void OnScanned(SigilResult result) => Raise();
+        void OnScanned(SigilResult result) => Raise(Element.Fire);
 
-        // Puts the shield up, or tops it back up to full duration if it already is.
-        [ContextMenu("Raise shield")]
-        public void Raise()
+        public void RaiseFire()
+        {
+            Raise(Element.Fire);
+        }
+
+		public void RaiseLightning()
+		{
+			Raise(Element.Lightning);
+		}
+
+		public void RaiseWater()
+		{
+			Raise(Element.Water);
+		}
+
+		// Puts the shield up, or tops it back up to full duration if it already is.
+		[ContextMenu("Raise shield")]
+        public void Raise(Element element)
         {
             if (bubble == null && !BuildBubble()) return;
 
             if (remaining <= 0f) age = 0f;
             remaining = duration;
+            this.element = element;
             Debug.Log($"[SigilShield] up for {duration:0.#}s");
         }
 
@@ -107,17 +148,44 @@ namespace SpellSign.Sigils
             if (cam == null || remaining <= 0f)
             {
                 bubble.SetActive(false);
+                bubbleVisual.SetVisibility(false);
                 return;
             }
 
             bubble.SetActive(true);
-            bubble.transform.SetPositionAndRotation(cam.transform.position, Quaternion.identity);
+			bubbleVisual.SetVisibility(true);
+            SetBubbleVisualColor();
+            
+			bubble.transform.SetPositionAndRotation(cam.transform.position, Quaternion.identity);
             bubble.transform.localScale = Vector3.one * (radius * 2f);
 
+            /*
             float fade = Mathf.Clamp01(age / fadeInTime) * Mathf.Clamp01(remaining / fadeOutTime);
             if (remaining < warnTime && Mathf.Repeat(age * flickerRate, 1f) < 0.5f)
                 fade *= 0.35f;
             material.SetFloat(FadeId, fade);
+            */
+        }
+
+        private void SetBubbleVisualColor()
+        {
+            switch (element)
+            {
+                case Element.Fire:
+                    bubbleVisual.ChangeColorFromIndex(0);
+                    break;
+
+				case Element.Lightning:
+					bubbleVisual.ChangeColorFromIndex(1);
+					break;
+
+				case Element.Water:
+					bubbleVisual.ChangeColorFromIndex(2);
+					break;
+
+                default:
+                    throw new System.Exception("Unknown or incorrect element");
+			}
         }
 
         bool BuildBubble()
@@ -133,16 +201,24 @@ namespace SpellSign.Sigils
                 bubbleMaterial = new Material(shader);
             }
 
+            if(bubbleVisual  == null)
+            {
+                bubbleVisual = Instantiate(bubbleVisualPrefab);
+			}
+
             bubble = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             bubble.name = "SigilShieldBubble";
             // A collider around the head would block the player's own spells.
             Destroy(bubble.GetComponent<Collider>());
 
             var renderer = bubble.GetComponent<MeshRenderer>();
-            material = new Material(bubbleMaterial);
-            renderer.sharedMaterial = material;
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
+
+            //material = new Material(bubbleMaterial);
+            //renderer.sharedMaterial = material;
+            //renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            //renderer.receiveShadows = false;
+
+            renderer.enabled = false;
 
             bubble.SetActive(false);
             return true;
