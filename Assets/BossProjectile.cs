@@ -35,18 +35,24 @@ public class BossProjectile : MonoBehaviour
     private LayerMask obstacleMask;
     private Transform playerTarget;
     private bool launched = false;
+    
+    //0 fire
+    //1 lightning
+    //2 water
+    private Element element;
 
     static readonly RaycastHit[] hitBuffer = new RaycastHit[16];
 
     // Called by DragonBoss right after Instantiate. playerTarget is
     // optional -- pass it to get player-hit detection; leave it null and
     // this behaves exactly like before (furniture-blocked, but harmless).
-    public void Launch(Vector3 targetPosition, LayerMask obstacleMask, Transform playerTarget = null)
+    public void Launch(Vector3 targetPosition, LayerMask obstacleMask, Element element, Transform playerTarget = null)
     {
         direction = (targetPosition - transform.position).normalized;
         this.obstacleMask = obstacleMask;
         this.playerTarget = playerTarget;
         launched = true;
+        this.element = element;
         Destroy(gameObject, lifetime);
     }
 
@@ -72,7 +78,7 @@ public class BossProjectile : MonoBehaviour
         if (playerTarget != null)
         {
             // The player's sigil shield stops the shot at its edge, no damage.
-            if (SpellSign.Sigils.SigilShield.Blocks(transform.position))
+            if (SpellSign.Sigils.SigilShield.Blocks(transform.position, element))
             {
                 Destroy(gameObject);
                 return;

@@ -536,7 +536,6 @@ public class DragonBoss : MonoBehaviour
 			yield return null;
 		}
 		StopCharge();
-		Debug.LogWarning("TEST: " + type.name);
 		if (!entered) Debug.LogWarning($"[DragonBoss] Never entered charge state '{type.chargeState}' -- check the name.");
 		if (IsDead()) yield break;
 
@@ -621,7 +620,9 @@ public class DragonBoss : MonoBehaviour
 					ticksDone++;
 					// Split so the ticks add up to exactly Breath Damage.
 					int damage = type.breathDamage * ticksDone / ticks - type.breathDamage * (ticksDone - 1) / ticks;
-					if (player != null && !SpellSign.Sigils.SigilShield.IsUp)
+					if (player != null && 
+						!(SpellSign.Sigils.SigilShield.IsUp && SpellSign.Sigils.SigilShield.Instance.element == health.CurrentElement)
+					)
 						player.TakeDamage(damage);
 				}
 			}
@@ -1081,7 +1082,7 @@ public class DragonBoss : MonoBehaviour
 		{
 			bp.damageAmount = Mathf.RoundToInt(bp.damageAmount * type.damageScale);
 			bp.hitRadius *= type.projectileScale; // a bigger shot connects from further away
-			bp.Launch(aimPoint, obstacleMask, target);
+			bp.Launch(aimPoint, obstacleMask, health.CurrentElement, target);
 		}
 	}
 

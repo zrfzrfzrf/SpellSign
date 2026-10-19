@@ -157,7 +157,7 @@ public class BossStandIn : MonoBehaviour
         BossProjectile bp = proj.GetComponent<BossProjectile>();
         if (bp != null)
         {
-            bp.Launch(target.position, obstacleMask);
+            bp.Launch(target.position, obstacleMask, Element.Fire);
         }
     }
 
