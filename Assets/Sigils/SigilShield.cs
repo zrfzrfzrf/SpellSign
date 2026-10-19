@@ -123,6 +123,12 @@ namespace SpellSign.Sigils
 		[ContextMenu("Raise shield")]
         public void Raise(Element element)
         {
+            if (!AttackWarningUI.Instance.visible)
+            {
+                Debug.Log("Can't raise shield now");
+                return;
+            }
+
             if (bubble == null && !BuildBubble()) return;
 
             if (remaining <= 0f) age = 0f;

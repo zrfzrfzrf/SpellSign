@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.UI;
 
 public class AttackWarningUI : MonoBehaviour
@@ -20,13 +21,17 @@ public class AttackWarningUI : MonoBehaviour
 
 	public RawImage warningVisual;
 
+	public bool visible { get; private set; }
+
 	public static void HideWarning()
 	{
 		Instance.warningVisual.gameObject.SetActive(false);
+		Instance.visible = false;
 	}
 
 	public static void ShowWarning()
 	{
 		Instance.warningVisual.gameObject.SetActive(true);
+		Instance.visible = true;
 	}
 }
