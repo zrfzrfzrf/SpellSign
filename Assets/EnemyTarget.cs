@@ -193,6 +193,21 @@ public class EnemyTarget : MonoBehaviour, ISpellTarget
 			SetElement(phaseAfter);
 	}
 
+	public void DevHurtDragonFire()
+	{
+		TakeHit(Element.Fire);
+	}
+
+	public void DevHurtDragonLightning()
+	{
+		TakeHit(Element.Lightning);
+	}
+
+	public void DevHurtDragonWater()
+	{
+		TakeHit(Element.Water);
+	}
+
 	// Switches to the element that goes with the health left, ending a phase
 	// change. Also puts the element's colors back after a whitened flash.
 	public void FinishPhaseChange()
