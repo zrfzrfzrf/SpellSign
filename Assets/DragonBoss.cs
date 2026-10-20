@@ -238,6 +238,7 @@ public class DragonBoss : MonoBehaviour
 
 	[SerializeField]
 	private Animator animator;
+	private int attackAnimLayer = 1;
 
 	private EnemyTarget health;
 
@@ -638,17 +639,17 @@ public class DragonBoss : MonoBehaviour
 	void PlayState(string stateName)
 	{
 		if (animator != null && !string.IsNullOrEmpty(stateName))
-			animator.CrossFadeInFixedTime(stateName, StateBlend);
+			animator.CrossFadeInFixedTime(stateName, StateBlend, attackAnimLayer);
 	}
 
 	// True while the animator is playing (or blending into) the named state and
 	// hasn't started leaving it or reached its end.
 	bool InState(string stateName, out AnimatorStateInfo info)
 	{
-		info = animator.GetCurrentAnimatorStateInfo(0);
-		if (animator.IsInTransition(0))
+		info = animator.GetCurrentAnimatorStateInfo(attackAnimLayer);
+		if (animator.IsInTransition(attackAnimLayer))
 		{
-			AnimatorStateInfo next = animator.GetNextAnimatorStateInfo(0);
+			AnimatorStateInfo next = animator.GetNextAnimatorStateInfo(attackAnimLayer);
 			if (next.IsName(stateName)) { info = next; return true; }
 			return false; // blending into something else
 		}
@@ -674,7 +675,7 @@ public class DragonBoss : MonoBehaviour
 		{
 			foreach (AttackType type in attackTypes)
 				animator.ResetTrigger(type.animatorTrigger);
-			animator.CrossFadeInFixedTime(IdleState, 0.25f);
+			animator.CrossFadeInFixedTime(IdleState, 0.25f, attackAnimLayer);
 		}
 
 		// Stagger: knocked back and shaking. Hits still count, against the old element.
@@ -988,9 +989,9 @@ public class DragonBoss : MonoBehaviour
 			return type.fireTime - sinceTrigger;
 
 		// A state being blended into is the "next" one; its clip is already running.
-		AnimatorStateInfo current = animator.GetCurrentAnimatorStateInfo(0);
-		AnimatorStateInfo next = animator.GetNextAnimatorStateInfo(0);
-		bool blending = animator.IsInTransition(0);
+		AnimatorStateInfo current = animator.GetCurrentAnimatorStateInfo(attackAnimLayer);
+		AnimatorStateInfo next = animator.GetNextAnimatorStateInfo(attackAnimLayer);
+		bool blending = animator.IsInTransition(attackAnimLayer);
 
 		if (blending && next.IsName(type.fireInState)) return type.fireTime - ClipTime(next);
 		if (current.IsName(type.fireInState)) return type.fireTime - ClipTime(current);
@@ -1023,7 +1024,7 @@ public class DragonBoss : MonoBehaviour
 			yield return null;
 	}
 
-	bool AnimatorBusy() => animator.IsInTransition(0) || !animator.GetCurrentAnimatorStateInfo(0).IsName(IdleState);
+	bool AnimatorBusy() => animator.IsInTransition(attackAnimLayer) || !animator.GetCurrentAnimatorStateInfo(attackAnimLayer).IsName(IdleState);
 
 	bool IsDead() => health != null && health.IsDead;
 
