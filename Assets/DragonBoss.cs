@@ -43,8 +43,10 @@ using Meta.XR.MRUtilityKit;
 //
 // The Breath attack is the one that can't be dodged: the dragon flies up and
 // breathes its element down over the player and the floor around them. Cover
-// doesn't help and neither does moving; only the sigil shield (SigilShield)
-// stops it. It does its damage in ticks for as long as the breath lasts.
+// doesn't help and neither does moving; only a sigil shield of the same
+// element (SigilShield.Protects) stops it, raised while the warning shows and
+// lasting to the end of the breath. It does its damage in ticks for as long as
+// the breath lasts.
 //
 // A hit that takes the dragon into its next phase (see EnemyTarget) cuts short
 // whatever it was doing. It staggers back, still open to the spells that were
@@ -493,7 +495,7 @@ public class DragonBoss : MonoBehaviour
 
 		if (type.name == "Breath")
 		{
-			AttackWarningUI.ShowWarning();
+			AttackWarningUI.ShowWarning(BreathElement()); // only a shield of the breath's element stops it
 		}
 
 		bool entered = false;
@@ -621,9 +623,7 @@ public class DragonBoss : MonoBehaviour
 					ticksDone++;
 					// Split so the ticks add up to exactly Breath Damage.
 					int damage = type.breathDamage * ticksDone / ticks - type.breathDamage * (ticksDone - 1) / ticks;
-					if (player != null && 
-						!(SpellSign.Sigils.SigilShield.IsUp && SpellSign.Sigils.SigilShield.Instance.element == health.CurrentElement)
-					)
+					if (player != null && !SpellSign.Sigils.SigilShield.Protects(BreathElement()))
 						player.TakeDamage(damage);
 				}
 			}
@@ -971,7 +971,7 @@ public class DragonBoss : MonoBehaviour
 				ticksDone++;
 				// Split so the ticks add up to exactly Breath Damage.
 				int damage = type.breathDamage * ticksDone / ticks - type.breathDamage * (ticksDone - 1) / ticks;
-				if (player != null && !SpellSign.Sigils.SigilShield.IsUp)
+				if (player != null && !SpellSign.Sigils.SigilShield.Protects(BreathElement()))
 					player.TakeDamage(damage);
 			}
 			yield return null;
@@ -1025,6 +1025,9 @@ public class DragonBoss : MonoBehaviour
 	}
 
 	bool AnimatorBusy() => animator.IsInTransition(attackAnimLayer) || !animator.GetCurrentAnimatorStateInfo(attackAnimLayer).IsName(IdleState);
+
+	// The breath is the dragon's current element; only a shield of that element stops it.
+	Element BreathElement() => health != null ? health.CurrentElement : Element.Fire;
 
 	bool IsDead() => health != null && health.IsDead;
 
@@ -1181,7 +1184,7 @@ public class DragonBoss : MonoBehaviour
 
 		// The breath carries on past the player to the floor behind them; with
 		// the shield up it stops at the bubble instead.
-		float reach = SpellSign.Sigils.SigilShield.IsUp
+		float reach = SpellSign.Sigils.SigilShield.Protects(BreathElement())
 			? Mathf.Max(0.1f, distance - SpellSign.Sigils.SigilShield.Radius - ShieldClearance)
 			: distance + BreathOvershoot;
 		ParticleSystem.MainModule main = breath.main;
