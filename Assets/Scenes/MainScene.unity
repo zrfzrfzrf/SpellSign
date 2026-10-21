@@ -15580,6 +15580,7 @@ MonoBehaviour:
   effectiveColor: {r: 0.94, g: 0.62, b: 0.15, a: 1}
   effectiveSize: 1.4
   numberLift: 0.25
+  animator: {fileID: 0}
   dragonModeColors: []
 --- !u!195 &913202840
 NavMeshAgent:
@@ -19788,6 +19789,7 @@ MonoBehaviour:
   effectiveColor: {r: 0.94, g: 0.62, b: 0.15, a: 1}
   effectiveSize: 1.4
   numberLift: 0.25
+  animator: {fileID: 1162589857}
   dragonModeColors:
   - name: Fire
     parts:
