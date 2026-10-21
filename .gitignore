@@ -114,3 +114,7 @@ InitTestScene*.unity*
 .DS_Store
 *_BackUpThisFolder_ButDontShipItWithYourGame/
 .vscode/
+
+# Meta XR SDK input action bindings, regenerated (empty) on every build/run
+/RuntimeActionBindings.json
+/[Aa]ssets/StreamingAssets/RuntimeActionBindings.json*
