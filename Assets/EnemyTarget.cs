@@ -49,6 +49,8 @@ public class EnemyTarget : MonoBehaviour, ISpellTarget
 
 	public Element CurrentElement { get; private set;  }
 
+	public Animator animator;
+
 	// whiten: 0 = the element's own colors, 1 = all white. For the flash of a
 	// phase change.
 	public void ChangeElementVisual(Element element, float whiten = 0f)
@@ -250,12 +252,17 @@ public class EnemyTarget : MonoBehaviour, ISpellTarget
 		// blinks out looking the way it did when it died.
 		ChangeElementVisual(CurrentElement);
 
+		animator.SetBool("Dead", true);
+
 		Died?.Invoke();
 		StartCoroutine(BlinkOut());
 	}
 
+	private float firstBlinkDelay = 4; 
 	IEnumerator BlinkOut()
 	{
+		yield return new WaitForSeconds(firstBlinkDelay);
+
 		for (int i = 0; i < deathBlinks; i++)
 		{
 			SetVisible(false);
