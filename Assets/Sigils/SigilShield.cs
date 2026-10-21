@@ -2,81 +2,91 @@ using UnityEngine;
 
 namespace SpellSign.Sigils
 {
-    // Scanning any shape puts up a shield: a see-through blue bubble around the
-    // player's head that fades in, holds, flickers when it's about to run out,
-    // then fades away. While it's up, boss shots are stopped at its edge
-    // (BossProjectile asks Blocks() every frame).
+    // An elemental shield around the player's head, against the dragon's breath.
+    //
+    // While the breath warning shows (AttackWarningUI, from the start of the
+    // breath to its end), holding up a drawn sigil raises a shield of the
+    // shape's element: circle = Water, triangle = Fire, line = Lightning. A
+    // board already held up when the warning appears counts too.
+    //
+    // Only the right shield is taken: one of the breath's element (the
+    // dragon's own). A wrong shape raises nothing and the warning says "Wrong
+    // shield!" -- keep trying until the right one is shown. Once it is up it
+    // stays up, board or no board, until the attack is over.
+    //
+    // Protects() is the one rule for what a shield stops, used for the dragon's
+    // projectiles (Blocks), its breath damage, and where the breath stops in the air.
     //
     // Add it next to SigilScanner. It follows Camera.main (the Camera Rig's
-    // CenterEyeAnchor, which is also BossProjectile's player target). Needs the
-    // SigilShield material (SpellSign/ViewEdgeGlow shader) assigned, otherwise the
-    // shader may be stripped from device builds.
+    // CenterEyeAnchor, which is also BossProjectile's player target). The shield
+    // the player sees is Bubble Visual Prefab, recolored per element (ColorChanger).
     public class SigilShield : MonoBehaviour
     {
-
-
-        static readonly int FadeId = Shader.PropertyToID("_Fade");
-
         [Tooltip("Bubble radius around the head, in meters. Shots are stopped here.")]
         [SerializeField] float radius = 0.8f;
 
-        [Header("Timing")]
-        [Tooltip("How long the shield protects after a scan, in seconds (fade-out included).")]
-        [SerializeField] float duration = 5f;
-        [SerializeField] float fadeInTime = 0.25f;
-        [SerializeField] float fadeOutTime = 0.4f;
-        [Tooltip("The bubble flickers for this long before it runs out, in seconds.")]
-        [SerializeField] float warnTime = 1.2f;
-        [SerializeField] float flickerRate = 12f;
-
-        [Header("Look")]
-        [Tooltip("Material using the SpellSign/ViewEdgeGlow shader.")]
-        [SerializeField] Material bubbleMaterial;
-
-        static SigilShield active;
-
-        GameObject bubble;
-        Material material;
-        float age;
-        float remaining;
-
-        ColorChanger bubbleVisual;
         public ColorChanger bubbleVisualPrefab;
 
         public Element element = Element.Fire;
 
-        public static bool IsUp => active != null && active.remaining > 0f;
+        public static SigilShield Instance { get; private set; }
+
+        ColorChanger bubbleVisual;
+        Vector3 visualScale;       // the visual's scale that makes it as big as Radius
+        bool up;
+        SigilScanner scanner;      // for the shape held up right now
+
+        public static bool IsUp => Instance != null && Instance.isActiveAndEnabled && Instance.up;
 
         // Bubble radius in meters, for effects that should stop at its edge.
-        public static float Radius => active != null ? active.radius : 0f;
+        public static float Radius => Instance != null ? Instance.radius : 0f;
 
-		public static SigilShield Instance { get; private set; }
+        // True while a shield is up that stops attacks of this element.
+        public static bool Protects(Element attack) => IsUp && Instance.element == attack;
 
-		void Awake()
-		{
-			if (Instance != null && Instance != this)
-			{
-				Destroy(gameObject);
-				return;
-			}
-			Instance = this;
-			DontDestroyOnLoad(gameObject); // optional: survive scene loads
-		}
-
-		// True while the shield is up and `point` has reached its edge. The shot
-		// should then be destroyed without doing damage.
-		public static bool Blocks(Vector3 point, Element element)
+        // The shield each drawn shape raises.
+        public static Element ElementFor(SigilType shape)
         {
-            if (!IsUp) return false;
+            switch (shape)
+            {
+                case SigilType.Circle:   return Element.Water;
+                case SigilType.Triangle: return Element.Fire;
+                default:                 return Element.Lightning; // the line
+            }
+        }
 
-            //Debug.Log("Element comparison: " + Instance.element + " == " + element);
+        // The shape to draw for a shield of this element, as players are told it.
+        public static string ShapeName(Element shield)
+        {
+            switch (shield)
+            {
+                case Element.Water: return "CIRCLE";
+                case Element.Fire:  return "TRIANGLE";
+                default:            return "LINE";
+            }
+        }
 
-            if (Instance.element != element) return false;
+        void Awake()
+        {
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            Instance = this;
+            DontDestroyOnLoad(gameObject); // optional: survive scene loads
+        }
+
+        // True while the shield is up and `point` has reached its edge. The shot
+        // should then be destroyed without doing damage.
+        public static bool Blocks(Vector3 point, Element element)
+        {
+            if (!Protects(element)) return false;
 
             Camera cam = Camera.main;
             if (cam == null) return false;
 
-            if ((point - cam.transform.position).sqrMagnitude > active.radius * active.radius) return false;
+            if ((point - cam.transform.position).sqrMagnitude > Instance.radius * Instance.radius) return false;
 
             Debug.Log("[SigilShield] blocked a shot");
             return true;
@@ -84,149 +94,147 @@ namespace SpellSign.Sigils
 
         void OnEnable()
         {
-            active = this;
+            scanner = GetComponent<SigilScanner>();
             SigilScanner.Scanned += OnScanned;
         }
 
         void OnDisable()
         {
             SigilScanner.Scanned -= OnScanned;
-            if (active == this) active = null;
-            remaining = 0f;
-            if (bubble != null) bubble.SetActive(false);
+            Drop();
         }
 
         void OnDestroy()
         {
-            if (bubble != null) Destroy(bubble);
-            if (material != null) Destroy(material);
+            if (bubbleVisual != null) Destroy(bubbleVisual.gameObject);
+            if (Instance == this) Instance = null;
         }
 
-        void OnScanned(SigilResult result) => Raise(Element.Fire);
+        void OnScanned(SigilResult result)
+        {
+            if (result.Type != SigilType.None) Raise(ElementFor(result.Type));
+        }
 
+        [ContextMenu("Raise Fire shield")]
         public void RaiseFire()
         {
             Raise(Element.Fire);
         }
 
-		public void RaiseLightning()
-		{
-			Raise(Element.Lightning);
-		}
+        [ContextMenu("Raise Lightning shield")]
+        public void RaiseLightning()
+        {
+            Raise(Element.Lightning);
+        }
 
-		public void RaiseWater()
-		{
-			Raise(Element.Water);
-		}
+        [ContextMenu("Raise Water shield")]
+        public void RaiseWater()
+        {
+            Raise(Element.Water);
+        }
 
-		// Puts the shield up, or tops it back up to full duration if it already is.
-		[ContextMenu("Raise shield")]
+        // Puts up a shield of this element, if a breath is coming and it is the
+        // right one for it. A wrong one is turned down, with "Wrong shield!".
         public void Raise(Element element)
         {
-            if (!AttackWarningUI.Instance.visible)
+            if (AttackWarningUI.Instance == null || !AttackWarningUI.Instance.visible)
             {
                 Debug.Log("Can't raise shield now");
                 return;
             }
+            if (up) return; // already protected for this attack
 
-            if (bubble == null && !BuildBubble()) return;
+            if (element != AttackWarningUI.Needed)
+            {
+                AttackWarningUI.SayWrongShield();
+                return;
+            }
 
-            if (remaining <= 0f) age = 0f;
-            remaining = duration;
+            if (bubbleVisual == null && !BuildVisual()) return;
+
+            up = true;
             this.element = element;
-            Debug.Log($"[SigilShield] up for {duration:0.#}s");
+            SetBubbleVisualColor(); // once per raise: recoloring makes new materials
+            AttackWarningUI.SayShielded();
+            Debug.Log($"[SigilShield] {element} shield up until the attack is over");
         }
 
         void LateUpdate()
         {
-            if (bubble == null) return;
+            // The attack is over: so is the shield.
+            if (up && (AttackWarningUI.Instance == null || !AttackWarningUI.Instance.visible)) Drop();
 
-            if (remaining <= 0f)
-            {
-                if (bubble.activeSelf) bubble.SetActive(false);
-                return;
-            }
+            RaiseForBoardHeldUp();
+            if (!up) return;
 
-            age += Time.deltaTime;
-            remaining -= Time.deltaTime;
-
+            // What the player sees goes where the protection is: around the head.
             Camera cam = Camera.main;
-            if (cam == null || remaining <= 0f)
-            {
-                bubble.SetActive(false);
-                bubbleVisual.SetVisibility(false);
-                return;
-            }
+            if (cam == null || bubbleVisual == null) return;
+            bubbleVisual.transform.position = cam.transform.position;
+            bubbleVisual.transform.localScale = visualScale;
+            bubbleVisual.SetVisibility(true);
+        }
 
-            bubble.SetActive(true);
-			bubbleVisual.SetVisibility(true);
-            SetBubbleVisualColor();
-            
-			bubble.transform.SetPositionAndRotation(cam.transform.position, Quaternion.identity);
-            bubble.transform.localScale = Vector3.one * (radius * 2f);
+        void Drop()
+        {
+            up = false;
+            if (bubbleVisual != null) bubbleVisual.SetVisibility(false);
+        }
 
-            /*
-            float fade = Mathf.Clamp01(age / fadeInTime) * Mathf.Clamp01(remaining / fadeOutTime);
-            if (remaining < warnTime && Mathf.Repeat(age * flickerRate, 1f) < 0.5f)
-                fade *= 0.35f;
-            material.SetFloat(FadeId, fade);
-            */
+        // The scanner only reports a shape when it first recognizes it. A board
+        // already held up before the warning was reported too early to count,
+        // so while the warning shows and no shield is up, the shape in view now
+        // is tried -- and keeps getting "Wrong shield!" for as long as a wrong
+        // one is held up.
+        void RaiseForBoardHeldUp()
+        {
+            if (up || scanner == null || scanner.Recognizer == null) return;
+            if (AttackWarningUI.Instance == null || !AttackWarningUI.Instance.visible) return;
+
+            SigilType held = scanner.Recognizer.Declared;
+            if (held != SigilType.None) Raise(ElementFor(held));
         }
 
         private void SetBubbleVisualColor()
         {
+            if (bubbleVisual == null) return;
             switch (element)
             {
                 case Element.Fire:
                     bubbleVisual.ChangeColorFromIndex(0);
                     break;
 
-				case Element.Lightning:
-					bubbleVisual.ChangeColorFromIndex(1);
-					break;
+                case Element.Lightning:
+                    bubbleVisual.ChangeColorFromIndex(1);
+                    break;
 
-				case Element.Water:
-					bubbleVisual.ChangeColorFromIndex(2);
-					break;
-
-                default:
-                    throw new System.Exception("Unknown or incorrect element");
-			}
+                case Element.Water:
+                    bubbleVisual.ChangeColorFromIndex(2);
+                    break;
+            }
         }
 
-        bool BuildBubble()
+        bool BuildVisual()
         {
-            if (bubbleMaterial == null)
+            if (bubbleVisualPrefab == null)
             {
-                Shader shader = Shader.Find("SpellSign/ViewEdgeGlow");
-                if (shader == null)
-                {
-                    Debug.LogWarning("[SigilShield] no bubble material assigned and SpellSign/ViewEdgeGlow shader not found -- shield can't be shown.");
-                    return false;
-                }
-                bubbleMaterial = new Material(shader);
+                Debug.LogWarning("[SigilShield] no Bubble Visual Prefab assigned -- the shield works but can't be seen.");
+                return true; // it still protects
             }
 
-            if(bubbleVisual  == null)
+            bubbleVisual = Instantiate(bubbleVisualPrefab);
+
+            // Scaled so its outside is the protected radius around the head.
+            // Measured from its meshes: its renderers start switched off.
+            float modelRadius = 0f;
+            foreach (MeshFilter mesh in bubbleVisual.GetComponentsInChildren<MeshFilter>(true))
             {
-                bubbleVisual = Instantiate(bubbleVisualPrefab);
-			}
-
-            bubble = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            bubble.name = "SigilShieldBubble";
-            // A collider around the head would block the player's own spells.
-            Destroy(bubble.GetComponent<Collider>());
-
-            var renderer = bubble.GetComponent<MeshRenderer>();
-
-            //material = new Material(bubbleMaterial);
-            //renderer.sharedMaterial = material;
-            //renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            //renderer.receiveShadows = false;
-
-            renderer.enabled = false;
-
-            bubble.SetActive(false);
+                if (mesh.sharedMesh == null) continue;
+                Vector3 extents = Vector3.Scale(mesh.sharedMesh.bounds.extents, mesh.transform.lossyScale);
+                modelRadius = Mathf.Max(modelRadius, extents.x, extents.y, extents.z);
+            }
+            if (modelRadius <= 0f) modelRadius = radius;
+            visualScale = bubbleVisual.transform.localScale * (radius / modelRadius);
             return true;
         }
     }

@@ -52,9 +52,11 @@ public class ColorChanger : MonoBehaviour
 				int index = chosenMode.parts[i].materialIndex;
 				Material mat = chosenMode.parts[i].mat;
 
-				Material[] mats = renderer.materials;
+				// sharedMaterials: renderer.materials would make a new copy of every
+				// material on each call, and none of them would ever be cleaned up.
+				Material[] mats = renderer.sharedMaterials;
 				mats[index] = mat;
-				renderer.materials = mats;
+				renderer.sharedMaterials = mats;
 			}
 		}
 	}
