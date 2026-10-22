@@ -258,7 +258,7 @@ public class EnemyTarget : MonoBehaviour, ISpellTarget
 		StartCoroutine(BlinkOut());
 	}
 
-	private float firstBlinkDelay = 4; 
+	private float firstBlinkDelay = 17; 
 	IEnumerator BlinkOut()
 	{
 		yield return new WaitForSeconds(firstBlinkDelay);
