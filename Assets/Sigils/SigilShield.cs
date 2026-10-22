@@ -55,16 +55,9 @@ namespace SpellSign.Sigils
             }
         }
 
-        // The shape to draw for a shield of this element, as players are told it.
-        public static string ShapeName(Element shield)
-        {
-            switch (shield)
-            {
-                case Element.Water: return "CIRCLE";
-                case Element.Fire:  return "TRIANGLE";
-                default:            return "LINE";
-            }
-        }
+        // The shape to draw for a shield of this element, as players are told it
+        // (in their language: Translations.csv).
+        public static string ShapeName(Element shield) => Loc.T("shape." + shield);
 
         void Awake()
         {

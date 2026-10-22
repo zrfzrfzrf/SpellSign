@@ -182,7 +182,7 @@ public class ElementWheel : MonoBehaviour
             {
                 // Outside the ring: above the top icon, below the bottom two.
                 float away = (iconSize * 0.5f + radius * 0.16f) * (home.y > 0f ? 1f : -1f);
-                MenuParts.NewText(iconRoot, ElementLook.Name(element).ToUpper(), radius * 1.4f, LabelColor,
+                MenuParts.NewText(iconRoot, ElementLook.DisplayName(element).ToUpperInvariant(), radius * 1.4f, LabelColor,
                                   new Vector2(radius * 2f, radius * 0.4f), new Vector3(0f, away, -0.004f), order + 4);
             }
         }

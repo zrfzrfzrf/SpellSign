@@ -131,7 +131,7 @@ namespace SpellSign.Sigils
 
             cardColor = ColorFor(result.Type);
             SetGlyphShape(result.Type);
-            label.text = result.Type.ToString().ToUpperInvariant();
+            label.text = Loc.T("sigil." + result.Type);
 
             if (scanSound != null) AudioSource.PlayClipAtPoint(scanSound, card.transform.position);
         }
@@ -198,11 +198,11 @@ namespace SpellSign.Sigils
                 statusFill.startColor = c;
                 statusFill.endColor = c;
                 SetArc(statusFill, ringFill);
-                statusText.text = "HOLD STILL";
+                statusText.text = Loc.T("scan.hold_still");
             }
             else
             {
-                statusText.text = "take it away to scan again";
+                statusText.text = Loc.T("scan.take_away");
             }
         }
 

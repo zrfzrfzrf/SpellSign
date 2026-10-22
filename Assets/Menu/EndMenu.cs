@@ -50,7 +50,10 @@ public class EndMenu : MonoBehaviour
     {
         if (panel == null) Build();
 
-        title.text = won ? "VICTORY" : "DEFEAT";
+        title.text = Loc.T(won ? "end.victory" : "end.defeat");
+        restartButton.Text = Loc.T("end.restart");
+        menuButton.Text = Loc.T("end.menu");
+        if (nextLevelButton != null) nextLevelButton.Text = Loc.T("end.next_level");
         title.color = won ? WonColor : LostColor;
         Transform[] tips = MenuParts.IndexTips(hands);
         restartButton.Fingertips = tips;

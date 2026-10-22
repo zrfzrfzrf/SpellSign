@@ -31,7 +31,9 @@ public static class ElementRules
 }
 
 // How each element looks and is called wherever the game shows one: the same
-// colors as the dragon's attacks and the glow on the hands.
+// colors as the dragon's attacks and the glow on the hands. Name is the
+// element's fixed English name, for files and objects; DisplayName is what the
+// player reads, in their language.
 public static class ElementLook
 {
     public static UnityEngine.Color Color(Element element)
@@ -53,6 +55,8 @@ public static class ElementLook
             default:            return "Lightning";
         }
     }
+
+    public static string DisplayName(Element element) => Loc.T("element." + element);
 }
 
 // Anything a player's spell can hit: the dragon (EnemyTarget) and the
