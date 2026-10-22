@@ -11,7 +11,9 @@ using UnityEngine.UI;
 //
 //     GUARDIAN! PROTECT YOUR MAGE          (warm orange, gently pulsing)
 //     Wrong shield!                        (yellow, while a wrong shape is shown)
-//     Raise a WATER shield: show the CIRCLE   (element and shape in its colour)
+//     Raise a WATER SHIELD: show the CIRCLE   (shield and shape in its colour)
+//
+// The words come from Translations.csv (Loc), in the player's language.
 //
 // Once the right shield is up the text goes away: the bubble around the
 // player says it all. The breath is still under way, though -- `visible`
@@ -124,12 +126,12 @@ public class AttackWarningUI : MonoBehaviour
 	{
 		if (text == null) return;
 		string color = "#" + ColorUtility.ToHtmlStringRGB(ElementLook.Color(needed));
-		string element = ElementLook.Name(needed).ToUpper();
+		string shield = "<color=" + color + "><b>" + Loc.T("shield." + needed) + "</b></color>";
+		string shape = "<color=" + color + "><b>" + SpellSign.Sigils.SigilShield.ShapeName(needed) + "</b></color>";
 
-		string title = "<size=125%><color=" + TitleColor + ">GUARDIAN! PROTECT YOUR MAGE</color></size>";
-		string status = "Raise a <color=" + color + "><b>" + element + "</b></color> shield: show the <color=" + color + "><b>"
-		                + SpellSign.Sigils.SigilShield.ShapeName(needed) + "</b></color>";
-		string wrong = wrongUntil > 0f ? "\n<color=" + WrongColor + "><b>Wrong shield!</b></color>" : "";
+		string title = "<size=125%><color=" + TitleColor + ">" + Loc.T("warning.title") + "</color></size>";
+		string status = Loc.T("warning.raise", shield, shape);
+		string wrong = wrongUntil > 0f ? "\n<color=" + WrongColor + "><b>" + Loc.T("warning.wrong") + "</b></color>" : "";
 		text.text = title + wrong + "\n" + status;
 	}
 

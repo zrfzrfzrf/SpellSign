@@ -103,7 +103,7 @@ public class Tutorial : MonoBehaviour
 
         yield return MixedRoundStep();
 
-        Say("Well done! Here comes the dragon!", DoneColor);
+        Say(Loc.T("tutorial.done"), DoneColor);
         yield return new WaitForSeconds(FinishPause);
         running = null;
         Finished?.Invoke();
@@ -113,16 +113,16 @@ public class Tutorial : MonoBehaviour
     IEnumerator Lesson(Element sign)
     {
         Element beaten = Beaten(sign);
-        string signName = ElementLook.Name(sign).ToUpper();
+        string signName = ElementLook.DisplayName(sign).ToUpperInvariant();
         SpellPoseDefinition pose = PoseFor(sign);
 
         ElementCrystal crystal = Spawn(beaten, center.position);
         bool broken = false;
         crystal.Shattered += c => broken = true;
         crystal.Bounced += (c, spell) =>
-            Say("That was " + ElementLook.Name(spell) + ". Make the " + signName + " sign, then push", ElementLook.Color(sign));
+            Say(Loc.T("tutorial.wrong_spell", ElementLook.DisplayName(spell), signName), ElementLook.Color(sign));
 
-        Say("Make the " + signName + " sign, then push", ElementLook.Color(sign));
+        Say(Loc.T("tutorial.make_sign", signName), ElementLook.Color(sign));
         ShowGhost(pose, sign, crystal.transform, 0f);
 
         float started = Time.time;
@@ -135,7 +135,7 @@ public class Tutorial : MonoBehaviour
         HideGhost();
         wheel.SetArrowLit(sign, true);
         wheel.PulseArrow(sign);
-        Say(ElementLook.Name(sign) + " beats " + ElementLook.Name(beaten) + "!", ElementLook.Color(sign));
+        Say(Loc.T("tutorial.beats", ElementLook.DisplayName(sign), ElementLook.DisplayName(beaten)), ElementLook.Color(sign));
         yield return new WaitForSeconds(LessonPause);
     }
 
@@ -161,18 +161,18 @@ public class Tutorial : MonoBehaviour
                     hinted = null;
                     HideGhost();
                 }
-                if (left > 0) Say("Break each crystal with the element that beats it", TextColor);
+                if (left > 0) Say(Loc.T("tutorial.mixed"), TextColor);
             };
             crystal.Bounced += (c, spell) =>
             {
                 Element counter = ElementRules.Counter(c.Element);
                 wheel.PulseArrow(counter);
-                Say(ElementLook.Name(counter) + " beats " + ElementLook.Name(c.Element) + "!", ElementLook.Color(counter));
+                Say(Loc.T("tutorial.beats", ElementLook.DisplayName(counter), ElementLook.DisplayName(c.Element)), ElementLook.Color(counter));
             };
         }
 
         wheel.SetAllArrowsLit(true);
-        Say("Break each crystal with the element that beats it", TextColor);
+        Say(Loc.T("tutorial.mixed"), TextColor);
 
         while (left > 0)
         {
@@ -324,7 +324,7 @@ public class Tutorial : MonoBehaviour
         exitPanel.SetParent(root, false);
         panelMaterial = MenuParts.NewMaterial(new Color(0.04f, 0.05f, 0.09f, 0.9f));
         MenuParts.NewQuad(exitPanel, "Background", panelMaterial, ExitPanelSize, Vector3.zero, Order);
-        TouchButton exit = TouchButton.Create(exitPanel, "EXIT", ButtonSize, new Color(0.75f, 0.25f, 0.22f, 0.95f), Order + 1);
+        TouchButton exit = TouchButton.Create(exitPanel, Loc.T("tutorial.exit"), ButtonSize, new Color(0.75f, 0.25f, 0.22f, 0.95f), Order + 1);
         exit.Fingertips = MenuParts.IndexTips(hands);
         exit.Pressed += () => ExitPressed?.Invoke();
 

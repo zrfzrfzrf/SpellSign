@@ -19,6 +19,7 @@ public class TouchButton : MonoBehaviour
     static readonly Color DisabledPlate = new Color(0.25f, 0.25f, 0.28f, 0.9f);
     static readonly Color DisabledLabel = new Color(0.55f, 0.55f, 0.58f);
     static readonly Color BarColor = new Color(1f, 1f, 1f, 0.9f);
+    static readonly Color DimPicture = new Color(0.5f, 0.5f, 0.5f, 1f); // a picture button that isn't Highlighted
 
     public event Action Pressed;
 
@@ -29,6 +30,13 @@ public class TouchButton : MonoBehaviour
     // The fingertips that can press it (both index fingers).
     public Transform[] Fingertips { get; set; } = new Transform[0];
 
+    // The label, which can change (the language does).
+    public string Text
+    {
+        get => label.text;
+        set => label.text = value;
+    }
+
     Collider body;
     Material plateMaterial;
     Material barMaterial;
@@ -37,6 +45,7 @@ public class TouchButton : MonoBehaviour
     Vector2 size;
     Color plateColor;
     Color labelColor;
+    bool picture;             // shows a picture instead of a colored plate (SetPicture)
     float progress;           // 0..1
     bool waitForRelease;      // pressed already; finger must leave before the next press
 
@@ -64,7 +73,21 @@ public class TouchButton : MonoBehaviour
 
         button.label = MenuParts.NewText(go.transform, text, 0.35f, Color.white, size,
                                          new Vector3(0f, 0.004f, -0.004f), sortingOrder + 2);
+        // A longer word (another language) shrinks to fit instead of running off the plate.
+        button.label.enableAutoSizing = true;
+        button.label.fontSizeMax = 0.35f;
+        button.label.fontSizeMin = 0.2f;
+        button.label.rectTransform.sizeDelta = new Vector2(size.x - 0.02f, size.y);
         return button;
+    }
+
+    // The plate shows this picture, the whole of it (a flag), with no label.
+    // Drawn dimmed unless Highlighted.
+    public void SetPicture(Texture2D texture)
+    {
+        picture = true;
+        Text = "";
+        if (plateMaterial != null) plateMaterial.mainTexture = texture;
     }
 
     void Update()
@@ -101,9 +124,12 @@ public class TouchButton : MonoBehaviour
     {
         if (plateMaterial == null) return; // no unlit shader (MenuParts logged it); buttons still work
 
-        plateMaterial.color = Interactable
-            ? Color.Lerp(plateColor, Color.white, Mathf.Max(progress * 0.35f, Highlighted ? 0.5f : 0f))
-            : DisabledPlate;
+        if (picture)
+            plateMaterial.color = Color.Lerp(Highlighted ? Color.white : DimPicture, Color.white, progress * 0.6f);
+        else
+            plateMaterial.color = Interactable
+                ? Color.Lerp(plateColor, Color.white, Mathf.Max(progress * 0.35f, Highlighted ? 0.5f : 0f))
+                : DisabledPlate;
         label.color = Interactable ? labelColor : DisabledLabel;
 
         // The bar grows from the left edge along the bottom of the button.

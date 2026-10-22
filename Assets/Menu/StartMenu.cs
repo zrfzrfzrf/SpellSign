@@ -7,7 +7,8 @@ using UnityEngine;
 // GameFlow keeps the dragon away and spell casting off, and starts the fight
 // on PlayPressed. With Show Tutorial on there is a TUTORIAL button beside it
 // (TutorialPressed), and with Show Sandbox a SANDBOX button below, for the
-// practice mode (SandboxPressed).
+// practice mode (SandboxPressed). Along the bottom, a flag for each language
+// (Loc): touch one to switch every text in the game to it.
 //
 // Built from code like EndMenu. GameFlow adds this component itself, so it
 // needs no scene setup.
@@ -18,12 +19,17 @@ public class StartMenu : MonoBehaviour
     const float WideWidth = 0.56f;     // ...with two side by side
     const float OneRowHeight = 0.3f;
     const float RowSpacing = 0.1f;
+    const float FlagRow = 0.09f;       // the panel grows by this for the flags
+    const float FlagHeight = 0.06f;
+    const float FlagSpacing = 0.04f;   // between two flags
+    const float FrameWidth = 0.008f;   // the frame around the chosen flag
     static readonly Vector2 ButtonSize = new Vector2(0.23f, 0.09f);
     static readonly Color PanelColor = new Color(0.04f, 0.05f, 0.09f, 0.9f);
     static readonly Color TitleColor = new Color(1f, 0.85f, 0.35f);
     static readonly Color PlayColor = new Color(0.25f, 0.65f, 0.4f, 0.95f);
     static readonly Color SandboxColor = new Color(0.2f, 0.45f, 0.9f, 0.95f);
     static readonly Color TutorialColor = new Color(0.55f, 0.35f, 0.85f, 0.95f);
+    static readonly Color FrameColor = new Color(1f, 0.85f, 0.35f);
 
     [Tooltip("Both hands. Their index fingertips are what presses the button.")]
     public HandGestureRecognizer[] hands;
@@ -46,11 +52,16 @@ public class StartMenu : MonoBehaviour
     Transform panel;
     MenuFollow follow; // moves the panel back in front of a player who walks or turns away
     Material panelMaterial;
+    Material frameMaterial;
+    Transform frame; // behind the chosen flag
     readonly System.Collections.Generic.List<TouchButton> buttons = new System.Collections.Generic.List<TouchButton>();
+    readonly System.Collections.Generic.Dictionary<TouchButton, string> textKeys = new System.Collections.Generic.Dictionary<TouchButton, string>();
+    readonly System.Collections.Generic.Dictionary<TouchButton, string> flags = new System.Collections.Generic.Dictionary<TouchButton, string>(); // button -> language
 
     public void Show()
     {
         if (panel == null) Build();
+        ShowLanguage();
 
         Transform[] tips = MenuParts.IndexTips(hands);
         foreach (TouchButton button in buttons) button.Fingertips = tips;
@@ -72,21 +83,22 @@ public class StartMenu : MonoBehaviour
 
         // TUTORIAL beside PLAY; SANDBOX on a row of its own below. Without
         // the tutorial, PLAY and SANDBOX share the row.
+        // Each button: its text's key in Translations.csv, color, action.
         var rows = new System.Collections.Generic.List<System.Collections.Generic.List<(string, Color, Action)>>();
         var first = new System.Collections.Generic.List<(string, Color, Action)>();
-        if (showTutorial) first.Add(("TUTORIAL", TutorialColor, () => TutorialPressed?.Invoke()));
-        first.Add(("PLAY", PlayColor, () => PlayPressed?.Invoke()));
+        if (showTutorial) first.Add(("menu.tutorial", TutorialColor, () => TutorialPressed?.Invoke()));
+        first.Add(("menu.play", PlayColor, () => PlayPressed?.Invoke()));
         rows.Add(first);
         if (showSandbox)
         {
-            var sandbox = ("SANDBOX", SandboxColor, (Action)(() => SandboxPressed?.Invoke()));
+            var sandbox = ("menu.sandbox", SandboxColor, (Action)(() => SandboxPressed?.Invoke()));
             if (first.Count < 2) first.Add(sandbox);
             else rows.Add(new System.Collections.Generic.List<(string, Color, Action)> { sandbox });
         }
 
         bool wide = false;
         foreach (var row in rows) if (row.Count > 1) wide = true;
-        var size = new Vector2(wide ? WideWidth : NarrowWidth, OneRowHeight + RowSpacing * (rows.Count - 1));
+        var size = new Vector2(wide ? WideWidth : NarrowWidth, OneRowHeight + RowSpacing * (rows.Count - 1) + FlagRow);
         panelMaterial = MenuParts.NewMaterial(PanelColor);
         MenuParts.NewQuad(panel, "Background", panelMaterial, size, Vector3.zero, Order);
 
@@ -98,19 +110,67 @@ public class StartMenu : MonoBehaviour
         {
             for (int b = 0; b < rows[r].Count; b++)
             {
-                var (label, color, pressed) = rows[r][b];
-                TouchButton button = TouchButton.Create(panel, label, ButtonSize, color, Order + 1);
+                var (key, color, pressed) = rows[r][b];
+                TouchButton button = TouchButton.Create(panel, Loc.T(key), ButtonSize, color, Order + 1);
                 float x = rows[r].Count > 1 ? (b == 0 ? -0.13f : 0.13f) : 0f;
                 button.transform.localPosition = new Vector3(x, titleY - 0.14f - RowSpacing * r, 0f);
                 button.Pressed += pressed;
                 buttons.Add(button);
+                textKeys[button] = key;
             }
+        }
+
+        BuildFlags(titleY - 0.14f - RowSpacing * (rows.Count - 1) - 0.095f);
+        Loc.Changed += ShowLanguage;
+    }
+
+    // The flags side by side and centred, with a frame for the chosen one
+    // drawn behind it.
+    void BuildFlags(float y)
+    {
+        var languages = Loc.Languages;
+        float total = -FlagSpacing;
+        foreach (string language in languages) total += FlagHeight * Flags.Aspect(language) + FlagSpacing;
+
+        frameMaterial = MenuParts.NewMaterial(FrameColor);
+        frame = MenuParts.NewQuad(panel, "Chosen Language Frame", frameMaterial, Vector2.one, Vector3.zero, Order + 1);
+
+        float x = -total * 0.5f;
+        foreach (string language in languages)
+        {
+            var flagSize = new Vector2(FlagHeight * Flags.Aspect(language), FlagHeight);
+            TouchButton flag = TouchButton.Create(panel, language, flagSize, Color.white, Order + 2);
+            flag.SetPicture(Flags.Picture(language));
+            flag.transform.localPosition = new Vector3(x + flagSize.x * 0.5f, y, 0f);
+            string chosen = language;
+            flag.Pressed += () => Loc.Set(chosen);
+            buttons.Add(flag);
+            flags[flag] = language;
+            x += flagSize.x + FlagSpacing;
+        }
+    }
+
+    // Button texts in the current language, and the frame on its flag.
+    void ShowLanguage()
+    {
+        foreach (var pair in textKeys) pair.Key.Text = Loc.T(pair.Value);
+        foreach (var pair in flags)
+        {
+            bool chosen = pair.Value == Loc.Current;
+            pair.Key.Highlighted = chosen;
+            if (!chosen) continue;
+            Vector3 at = pair.Key.transform.localPosition;
+            Vector3 flagSize = pair.Key.GetComponent<BoxCollider>().size;
+            frame.localPosition = new Vector3(at.x, at.y, 0.001f);
+            frame.localScale = new Vector3(flagSize.x + FrameWidth * 2f, flagSize.y + FrameWidth * 2f, 1f);
         }
     }
 
     void OnDestroy()
     {
+        Loc.Changed -= ShowLanguage;
         if (panel != null) Destroy(panel.gameObject);
         if (panelMaterial != null) Destroy(panelMaterial);
+        if (frameMaterial != null) Destroy(frameMaterial);
     }
 }

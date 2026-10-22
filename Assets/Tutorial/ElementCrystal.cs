@@ -69,14 +69,14 @@ public class ElementCrystal : MonoBehaviour, ISpellTarget
         if (damage == ElementRules.Effective)
         {
             Broken = true;
-            DamageNumber.Spawn(TowardPlayer(point), "Super effective!", EffectiveColor, 1.2f);
+            DamageNumber.Spawn(TowardPlayer(point), Loc.T("crystal.effective"), EffectiveColor, 1.2f);
             StartCoroutine(Shatter());
             Shattered?.Invoke(this);
             return;
         }
 
         SpellSign.CombatFeedback.DeflectRipple.Spawn(point);
-        DamageNumber.Spawn(TowardPlayer(point), damage == ElementRules.Immune ? "No effect" : "Too weak", WeakColor, 0.8f);
+        DamageNumber.Spawn(TowardPlayer(point), Loc.T(damage == ElementRules.Immune ? "crystal.no_effect" : "crystal.too_weak"), WeakColor, 0.8f);
         wobble = 1f;
         Bounced?.Invoke(this, attack);
     }
