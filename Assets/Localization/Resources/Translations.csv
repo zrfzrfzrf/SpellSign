@@ -2,6 +2,8 @@ key,en,sv,note
 menu.tutorial,TUTORIAL,ÖVNING,Start menu button. Keep button texts short.
 menu.play,PLAY,SPELA,Start menu button: starts the fight
 menu.sandbox,SANDBOX,SANDLÅDA,Start menu button: free practice with the dragon
+menu.walls_block,WALLS BLOCK,VÄGGAR STOPPAR,Start menu and sandbox: the player's spells stop at real walls and the ceiling
+menu.through_walls,THROUGH WALLS,GENOM VÄGGAR,Start menu and sandbox: the player's spells fly through real walls and the ceiling
 end.victory,VICTORY,SEGER,End screen title after a win
 end.defeat,DEFEAT,FÖRLUST,End screen title after a loss
 end.restart,RESTART,BÖRJA OM,End screen button: fight the dragon again

@@ -55,7 +55,7 @@ public class LightningStrike : MonoBehaviour
         Vector3 end;
 
         // Triggers don't stop a bolt: the menus' touch buttons are triggers.
-        bool struck = Physics.Raycast(start, direction, out RaycastHit hit, maxRange, hitMask, QueryTriggerInteraction.Ignore);
+        bool struck = NearestAlong(start, direction, out RaycastHit hit);
         ISpellTarget target = struck ? hit.collider.GetComponentInParent<ISpellTarget>() : null;
 
         // A near miss still counts: look for an enemy close beside the line, no
@@ -100,6 +100,24 @@ public class LightningStrike : MonoBehaviour
         }
 
         Destroy(gameObject, flashDuration);
+    }
+
+    // The first thing the exact line hits, skipping the scanned room when spells
+    // pass through walls (RoomWalls).
+    private bool NearestAlong(Vector3 start, Vector3 direction, out RaycastHit nearest)
+    {
+        nearest = default;
+        int count = Physics.RaycastNonAlloc(start, direction, assistHits, maxRange, hitMask, QueryTriggerInteraction.Ignore);
+        bool found = false;
+        for (int i = 0; i < count; i++)
+        {
+            RaycastHit h = assistHits[i];
+            if (found && h.distance >= nearest.distance) continue;
+            if (RoomWalls.Ignores(h.collider)) continue;
+            nearest = h;
+            found = true;
+        }
+        return found;
     }
 
     // The closest enemy collider that a ball of aimAssistRadius, swept along the

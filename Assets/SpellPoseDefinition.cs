@@ -13,10 +13,9 @@ using UnityEngine;
 //   Must Be Curled - this finger must be curled in for this pose to match
 //
 // Examples:
-//   Fire (fist)        -> thumb/index/middle/ring/pinky all "Must Be Curled"
-//   Water (open palm)  -> all five "Must Be Open"
-//   Ice (point)        -> index "Must Be Open", the other four "Must Be Curled"
-//   Lightning (peace)  -> index + middle "Must Be Open", thumb/ring/pinky "Must Be Curled"
+//   Fire (flat hand)   -> index/middle/ring/pinky "Must Be Open", thumb Any, Require Palm Facing Down
+//   Water (horns)      -> index + pinky "Must Be Open", middle + ring "Must Be Curled"
+//   Lightning (point)  -> index "Must Be Open", middle/ring/pinky "Must Be Curled"
 [CreateAssetMenu(fileName = "NewSpellPose", menuName = "SpellSign/Spell Pose Definition")]
 public class SpellPoseDefinition : ScriptableObject
 {

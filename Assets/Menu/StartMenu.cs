@@ -7,7 +7,9 @@ using UnityEngine;
 // GameFlow keeps the dragon away and spell casting off, and starts the fight
 // on PlayPressed. With Show Tutorial on there is a TUTORIAL button beside it
 // (TutorialPressed), and with Show Sandbox a SANDBOX button below, for the
-// practice mode (SandboxPressed). Along the bottom, a flag for each language
+// practice mode (SandboxPressed). Below them, WALLS BLOCK and THROUGH WALLS:
+// whether the player's spells stop at the scanned room or fly through it
+// (RoomWalls), the chosen one lit. Along the bottom, a flag for each language
 // (Loc): touch one to switch every text in the game to it.
 //
 // Built from code like EndMenu. GameFlow adds this component itself, so it
@@ -15,8 +17,7 @@ using UnityEngine;
 public class StartMenu : MonoBehaviour
 {
     const int Order = 10; // sorting order of the panel's lowest layer
-    const float NarrowWidth = 0.44f;   // panel width with one button per row
-    const float WideWidth = 0.56f;     // ...with two side by side
+    const float WideWidth = 0.56f;     // panel width: two buttons side by side
     const float OneRowHeight = 0.3f;
     const float RowSpacing = 0.1f;
     const float FlagRow = 0.09f;       // the panel grows by this for the flags
@@ -29,6 +30,7 @@ public class StartMenu : MonoBehaviour
     static readonly Color PlayColor = new Color(0.25f, 0.65f, 0.4f, 0.95f);
     static readonly Color SandboxColor = new Color(0.2f, 0.45f, 0.9f, 0.95f);
     static readonly Color TutorialColor = new Color(0.55f, 0.35f, 0.85f, 0.95f);
+    static readonly Color WallsColor = new Color(0.2f, 0.45f, 0.9f, 0.95f); // as the sandbox's mode buttons
     static readonly Color FrameColor = new Color(1f, 0.85f, 0.35f);
 
     [Tooltip("Both hands. Their index fingertips are what presses the button.")]
@@ -54,6 +56,7 @@ public class StartMenu : MonoBehaviour
     Material panelMaterial;
     Material frameMaterial;
     Transform frame; // behind the chosen flag
+    TouchButton wallsBlock, throughWalls;
     readonly System.Collections.Generic.List<TouchButton> buttons = new System.Collections.Generic.List<TouchButton>();
     readonly System.Collections.Generic.Dictionary<TouchButton, string> textKeys = new System.Collections.Generic.Dictionary<TouchButton, string>();
     readonly System.Collections.Generic.Dictionary<TouchButton, string> flags = new System.Collections.Generic.Dictionary<TouchButton, string>(); // button -> language
@@ -62,6 +65,7 @@ public class StartMenu : MonoBehaviour
     {
         if (panel == null) Build();
         ShowLanguage();
+        ShowWalls();
 
         Transform[] tips = MenuParts.IndexTips(hands);
         foreach (TouchButton button in buttons) button.Fingertips = tips;
@@ -96,9 +100,8 @@ public class StartMenu : MonoBehaviour
             else rows.Add(new System.Collections.Generic.List<(string, Color, Action)> { sandbox });
         }
 
-        bool wide = false;
-        foreach (var row in rows) if (row.Count > 1) wide = true;
-        var size = new Vector2(wide ? WideWidth : NarrowWidth, OneRowHeight + RowSpacing * (rows.Count - 1) + FlagRow);
+        // The walls choice: one more row, of two buttons.
+        var size = new Vector2(WideWidth, OneRowHeight + RowSpacing * rows.Count + FlagRow);
         panelMaterial = MenuParts.NewMaterial(PanelColor);
         MenuParts.NewQuad(panel, "Background", panelMaterial, size, Vector3.zero, Order);
 
@@ -120,8 +123,31 @@ public class StartMenu : MonoBehaviour
             }
         }
 
-        BuildFlags(titleY - 0.14f - RowSpacing * (rows.Count - 1) - 0.095f);
+        float wallsY = titleY - 0.14f - RowSpacing * rows.Count;
+        wallsBlock = WallsButton("menu.walls_block", -0.13f, wallsY, false);
+        throughWalls = WallsButton("menu.through_walls", 0.13f, wallsY, true);
+
+        BuildFlags(wallsY - 0.095f);
         Loc.Changed += ShowLanguage;
+        RoomWalls.Changed += ShowWalls;
+    }
+
+    TouchButton WallsButton(string key, float x, float y, bool passThrough)
+    {
+        TouchButton button = TouchButton.Create(panel, Loc.T(key), ButtonSize, WallsColor, Order + 1);
+        button.transform.localPosition = new Vector3(x, y, 0f);
+        button.Pressed += () => RoomWalls.SpellsPassThrough = passThrough;
+        buttons.Add(button);
+        textKeys[button] = key;
+        return button;
+    }
+
+    // Lights the walls choice that is on.
+    void ShowWalls()
+    {
+        if (wallsBlock == null) return;
+        wallsBlock.Highlighted = !RoomWalls.SpellsPassThrough;
+        throughWalls.Highlighted = RoomWalls.SpellsPassThrough;
     }
 
     // The flags side by side and centred, with a frame for the chosen one
@@ -169,6 +195,7 @@ public class StartMenu : MonoBehaviour
     void OnDestroy()
     {
         Loc.Changed -= ShowLanguage;
+        RoomWalls.Changed -= ShowWalls;
         if (panel != null) Destroy(panel.gameObject);
         if (panelMaterial != null) Destroy(panelMaterial);
         if (frameMaterial != null) Destroy(frameMaterial);
