@@ -9,8 +9,9 @@ using UnityEngine;
 //
 // The tutorial lights the arrows one by one as the player learns them and
 // pulses one as a hint. In the fight a small one sits beside the dragon's
-// health bar (EnemyHealthBars): the dragon's element is drawn big, and the
-// arrow into it -- from the element that beats it -- is lit.
+// health bar (EnemyHealthBars): the dragon's element is drawn big and breathes
+// softly (pops once when it changes), and the arrow into it -- from the element
+// that beats it -- is lit.
 //
 // Each element's icon is a colored badge with a white symbol, drawn from code
 // (ElementIcons), unless a picture for it is in Resources/ElementIcons.
@@ -27,6 +28,12 @@ public class ElementWheel : MonoBehaviour
     const float PulseTime = 1.6f;       // seconds a hint pulse lasts
     const float PulseRate = 4f;         // flashes per second while pulsing
     const float CurrentGrow = 1.4f;     // how much bigger the dragon's own element is drawn
+    const float CurrentPulseGrow = 0.2f; // ...and how much more it swells at the top of its breathing
+    const float CurrentPulseGlow = 0.3f; // ...and how far its colors brighten toward white then
+    const float CurrentPulseRate = 2f;  // breaths per second
+    const float PopTime = 0.45f;        // seconds the pop on a change of element lasts
+    const float PopGrow = 0.5f;         // extra size at the start of the pop
+    const float PopFlash = 0.7f;        // how far the colors flash toward white at the start of the pop
     const int ArcSegments = 24;
     static readonly Color UnlitArrow = new Color(1f, 1f, 1f, 0.25f);
     static readonly Color BackingColor = new Color(0.04f, 0.05f, 0.09f, 0.55f);
@@ -51,6 +58,7 @@ public class ElementWheel : MonoBehaviour
         public Element element;
         public Transform transform;
         public List<Material> materials = new List<Material>();
+        public List<Color> baseColors = new List<Color>(); // each material's color at rest, same order
     }
 
     readonly List<Arrow> arrows = new List<Arrow>();
@@ -61,6 +69,7 @@ public class ElementWheel : MonoBehaviour
     bool hasCurrent;
     Element current;
     float age;
+    float pop;                          // 1 when the dragon's element has just changed, falls to 0
 
     // radius: meters from the middle to each icon. labels: the element's name
     // beside its icon. sortingOrder: the lowest layer; it uses five.
@@ -99,6 +108,7 @@ public class ElementWheel : MonoBehaviour
     // For the fight: the dragon's element drawn big, the arrow into it lit.
     public void ShowCurrent(Element element)
     {
+        if (!hasCurrent || element != current) pop = 1f; // called every frame: only a real change pops
         hasCurrent = true;
         current = element;
         foreach (Arrow arrow in arrows) arrow.lit = arrow.from == ElementRules.Counter(element);
@@ -120,16 +130,25 @@ public class ElementWheel : MonoBehaviour
             arrow.material.color = color;
         }
 
+        pop = Mathf.MoveTowards(pop, 0f, Time.deltaTime / PopTime);
+
         foreach (Icon icon in icons)
         {
             bool big = hasCurrent && icon.element == current;
             bool dim = hasCurrent && !big;
-            icon.transform.localScale = Vector3.one * (big ? CurrentGrow : 1f);
-            foreach (Material material in icon.materials)
+
+            // The dragon's element breathes softly, and pops when it has just changed.
+            float breath = big ? 0.5f + 0.5f * Mathf.Sin(age * CurrentPulseRate * 2f * Mathf.PI) : 0f;
+            float popping = big ? pop * pop : 0f;
+            float grow = big ? CurrentGrow + CurrentPulseGrow * breath + PopGrow * popping : 1f;
+            float flash = Mathf.Clamp01(CurrentPulseGlow * breath + PopFlash * popping);
+
+            icon.transform.localScale = Vector3.one * grow;
+            for (int i = 0; i < icon.materials.Count; i++)
             {
-                Color c = material.color;
+                Color c = Color.Lerp(icon.baseColors[i], Color.white, flash);
                 c.a = dim ? 0.55f : 1f;
-                material.color = c;
+                icon.materials[i].color = c;
             }
         }
     }
@@ -165,7 +184,7 @@ public class ElementWheel : MonoBehaviour
             {
                 Material art = NewMaterial(Color.white, picture);
                 MenuParts.NewQuad(iconRoot, "Picture", art, Vector2.one * iconSize, Vector3.zero, order + 2);
-                icon.materials.Add(art);
+                AddMaterial(icon, art);
             }
             else
             {
@@ -173,8 +192,8 @@ public class ElementWheel : MonoBehaviour
                 Material symbol = NewMaterial(Color.white, ElementIcons.Symbol(element));
                 MenuParts.NewQuad(iconRoot, "Badge", badge, Vector2.one * iconSize, Vector3.zero, order + 2);
                 MenuParts.NewQuad(iconRoot, "Symbol", symbol, Vector2.one * iconSize * 0.68f, Vector3.back * 0.001f, order + 3);
-                icon.materials.Add(badge);
-                icon.materials.Add(symbol);
+                AddMaterial(icon, badge);
+                AddMaterial(icon, symbol);
             }
             icons.Add(icon);
 
@@ -186,6 +205,12 @@ public class ElementWheel : MonoBehaviour
                                   new Vector2(radius * 2f, radius * 0.4f), new Vector3(0f, away, -0.004f), order + 4);
             }
         }
+    }
+
+    static void AddMaterial(Icon icon, Material material)
+    {
+        icon.materials.Add(material);
+        icon.baseColors.Add(material.color);
     }
 
     // A curved arrow along the ring from `fromDegrees` down to `toDegrees`,
