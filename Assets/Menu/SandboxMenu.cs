@@ -4,7 +4,8 @@ using UnityEngine;
 
 // The panel that stays up in the sandbox: one touch button per way of casting
 // (HandGestureRecognizer.CastMode), the chosen one lit, a line saying how that
-// one works, and EXIT. Pressing a mode button switches both hands to it at once.
+// one works, WALLS BLOCK / THROUGH WALLS (RoomWalls, the same choice as on the
+// start menu), and EXIT. Pressing a mode button switches both hands to it at once.
 //
 // Unlike the other menus it is up while casting is on, so it stays out of the
 // hands' way: beside the player, to the left of the line they cast along
@@ -19,7 +20,7 @@ public class SandboxMenu : MonoBehaviour
     const int Order = 10; // sorting order of the panel's lowest layer
     const float QuietMargin = 0.04f; // meters around the panel where a fingertip already reads no signs
     const float QuietDepth = 0.1f;   // ...and in front of and behind it
-    static readonly Vector2 PanelSize = new Vector2(0.56f, 0.62f);
+    static readonly Vector2 PanelSize = new Vector2(0.56f, 0.72f);
     static readonly Vector2 ButtonSize = new Vector2(0.23f, 0.09f);
     static readonly Vector2 WideButtonSize = new Vector2(0.36f, 0.09f);
     static readonly Color PanelColor = new Color(0.04f, 0.05f, 0.09f, 0.9f);
@@ -59,6 +60,7 @@ public class SandboxMenu : MonoBehaviour
     Material panelMaterial;
     TextMeshPro hint;
     TouchButton[] modeButtons;
+    TouchButton wallsBlock, throughWalls;
     TouchButton exitButton;
 
     public void Show()
@@ -67,6 +69,8 @@ public class SandboxMenu : MonoBehaviour
 
         Transform[] tips = MenuParts.IndexTips(hands);
         foreach (TouchButton button in modeButtons) button.Fingertips = tips;
+        wallsBlock.Fingertips = tips;
+        throughWalls.Fingertips = tips;
         exitButton.Fingertips = tips;
 
         placement.castTarget = castTarget;
@@ -80,6 +84,7 @@ public class SandboxMenu : MonoBehaviour
         HandGestureRecognizer.QuietHalfSize = new Vector3(PanelSize.x * 0.5f + QuietMargin,
                                                            PanelSize.y * 0.5f + QuietMargin, QuietDepth);
         ShowMode();
+        ShowWalls();
     }
 
     public void Hide()
@@ -97,9 +102,9 @@ public class SandboxMenu : MonoBehaviour
         MenuParts.NewQuad(panel, "Background", panelMaterial, PanelSize, Vector3.zero, Order);
 
         MenuParts.NewText(panel, "SANDBOX", 0.6f, TitleColor, new Vector2(PanelSize.x, 0.08f),
-                          new Vector3(0f, 0.255f, -0.004f), Order + 4);
+                          new Vector3(0f, 0.305f, -0.004f), Order + 4);
         hint = MenuParts.NewText(panel, "HINT", 0.22f, HintColor, new Vector2(PanelSize.x, 0.05f),
-                                 new Vector3(0f, 0.185f, -0.004f), Order + 4);
+                                 new Vector3(0f, 0.235f, -0.004f), Order + 4);
 
         // The first two side by side, the others each on a row of their own.
         modeButtons = new TouchButton[ModeLabels.Length];
@@ -108,14 +113,30 @@ public class SandboxMenu : MonoBehaviour
             var mode = (HandGestureRecognizer.CastMode)i;
             bool wide = i >= 2;
             modeButtons[i] = TouchButton.Create(panel, ModeLabels[i], wide ? WideButtonSize : ButtonSize, ModeColor, Order + 1);
-            modeButtons[i].transform.localPosition = wide ? new Vector3(0f, 0.1f - 0.1f * (i - 1), 0f)
-                                                          : new Vector3(i == 0 ? -0.13f : 0.13f, 0.1f, 0f);
+            modeButtons[i].transform.localPosition = wide ? new Vector3(0f, 0.15f - 0.1f * (i - 1), 0f)
+                                                          : new Vector3(i == 0 ? -0.13f : 0.13f, 0.15f, 0f);
             modeButtons[i].Pressed += () => Choose(mode);
         }
 
+        wallsBlock = TouchButton.Create(panel, Loc.T("menu.walls_block"), ButtonSize, ModeColor, Order + 1);
+        wallsBlock.transform.localPosition = new Vector3(-0.13f, -0.15f, 0f);
+        wallsBlock.Pressed += () => RoomWalls.SpellsPassThrough = false;
+        throughWalls = TouchButton.Create(panel, Loc.T("menu.through_walls"), ButtonSize, ModeColor, Order + 1);
+        throughWalls.transform.localPosition = new Vector3(0.13f, -0.15f, 0f);
+        throughWalls.Pressed += () => RoomWalls.SpellsPassThrough = true;
+        RoomWalls.Changed += ShowWalls;
+
         exitButton = TouchButton.Create(panel, "EXIT", ButtonSize, ExitColor, Order + 1);
-        exitButton.transform.localPosition = new Vector3(0f, -0.225f, 0f);
+        exitButton.transform.localPosition = new Vector3(0f, -0.275f, 0f);
         exitButton.Pressed += () => ExitPressed?.Invoke();
+    }
+
+    // Lights the walls choice that is on.
+    void ShowWalls()
+    {
+        if (wallsBlock == null) return;
+        wallsBlock.Highlighted = !RoomWalls.SpellsPassThrough;
+        throughWalls.Highlighted = RoomWalls.SpellsPassThrough;
     }
 
     void Choose(HandGestureRecognizer.CastMode mode)
@@ -136,6 +157,7 @@ public class SandboxMenu : MonoBehaviour
 
     void OnDestroy()
     {
+        RoomWalls.Changed -= ShowWalls;
         if (panel != null)
         {
             if (HandGestureRecognizer.QuietPanel == panel) HandGestureRecognizer.QuietPanel = null;

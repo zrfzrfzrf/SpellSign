@@ -28,6 +28,9 @@ using UnityEngine;
 //
 // While a sign is being read the hand glows in the spell's color, and the
 // glow flashes on every cast. Cooldowns are shared by both hands.
+//
+// Every cast gets a light aim assist (AimAssist): a target within a few
+// degrees of the aim draws the spell onto it.
 
 public class HandGestureRecognizer : MonoBehaviour
 {
@@ -142,6 +145,13 @@ public class HandGestureRecognizer : MonoBehaviour
     [Tooltip("Minimum dot product between the palm normal and straight down for 'facing down' to count. 1 = palm must be perfectly level; 0.3 allows about 70 degrees of tilt, so you can still aim well up or down and roll your hand, but a hand hanging at your side (palm sideways) doesn't count. Only matters for poses that enable 'Require Palm Facing Down'.")]
     [Range(-1f, 1f)]
     public float palmDownDotThreshold = 0.3f;
+
+    [Header("Aim assist (all spells)")]
+    [Tooltip("A target within this many degrees of where a spell is aimed draws the spell onto it. 0 = no aim assist.")]
+    public float aimAssistAngle = 8f;
+    [Tooltip("Within this share of that cone the spell goes straight for the target; beyond it the pull fades out toward the edge.")]
+    [Range(0f, 1f)]
+    public float aimAssistFullShare = 0.4f;
 
     [Header("Debugging")]
     [Tooltip("Logs live per-finger curl state and which pose (if any) matches, twice a second.")]
@@ -314,6 +324,7 @@ public class HandGestureRecognizer : MonoBehaviour
         UpdateFingerCurlStates();
         UpdateSettleSpeed();
         UpdateAimSmoothing();
+        AimAssist.Track();
         // Each detector runs only in the modes that use it, and starts from
         // scratch when its mode comes on.
         bool thrust = (Mode == CastMode.Push || Mode == CastMode.ClassicAndPush) && UpdateThrust();
@@ -686,6 +697,7 @@ public class HandGestureRecognizer : MonoBehaviour
             RaycastHit h = pointHits[i];
             if (h.distance <= 0f) continue; // already touching at the start
             if (found && h.distance >= nearest.distance) continue;
+            if (RoomWalls.Ignores(h.collider)) continue; // spells pass through the room
             nearest = h;
             found = true;
         }
@@ -1011,9 +1023,15 @@ public class HandGestureRecognizer : MonoBehaviour
             direction = Quaternion.AngleAxis(aimPitchCorrection, palm.right) * direction;
 
         Vector3 spawnPosition = palm.position + direction * spawnOffset;
-        Quaternion spawnRotation = Quaternion.LookRotation(direction);
 
-        Instantiate(pose.spellPrefab, spawnPosition, spawnRotation);
+        var projectile = pose.spellPrefab.GetComponent<FireballProjectile>();
+        Vector3 aimed = direction;
+        direction = AimAssist.Adjust(spawnPosition, direction, projectile != null ? projectile.speed : 0f,
+                                     aimAssistAngle, aimAssistFullShare, out MonoBehaviour assistedTo);
+        if (debugLogState && assistedTo != null)
+            Debug.Log($"[AimAssist] {pose.spellName} bent {Vector3.Angle(aimed, direction):F1} deg toward {assistedTo.name}");
+
+        Instantiate(pose.spellPrefab, spawnPosition, Quaternion.LookRotation(direction));
         return true;
     }
 

@@ -22,6 +22,7 @@ public class FireballProjectile : MonoBehaviour
     private Rigidbody rb;
     private float spawnTime;
     private bool hasHit;
+    private Vector3 launchVelocity;
 
     void Awake()
     {
@@ -30,12 +31,20 @@ public class FireballProjectile : MonoBehaviour
 
         // Launch immediately, in the same frame it's created -- no
         // pause sitting at the spawn point before it starts moving.
-        rb.linearVelocity = transform.forward * speed;
+        launchVelocity = transform.forward * speed;
+        rb.linearVelocity = launchVelocity;
         spawnTime = Time.time;
 
         // Safety net: destroy it after a while even if it never hits anything,
         // so you don't end up with fireballs flying forever off into the distance
         Destroy(gameObject, lifetime);
+
+        // With spells set to pass through walls, the scanned room is not there
+        // for this shot at all.
+        if (RoomWalls.SpellsPassThrough)
+            foreach (Collider room in RoomWalls.RoomColliders())
+                foreach (Collider own in GetComponentsInChildren<Collider>())
+                    Physics.IgnoreCollision(own, room);
     }
 
     void OnCollisionEnter(Collision collision)
@@ -49,6 +58,14 @@ public class FireballProjectile : MonoBehaviour
         if (isSelf && Time.time - spawnTime < spawnGracePeriod)
         {
             Debug.Log("[FireballProjectile] Ignored early self-collision with: " + collision.gameObject.name);
+            return;
+        }
+
+        // A piece of the room that appeared after launch: fly on through it.
+        if (RoomWalls.Ignores(collision.collider))
+        {
+            Physics.IgnoreCollision(collision.GetContact(0).thisCollider, collision.collider);
+            rb.linearVelocity = launchVelocity; // the contact already knocked it off course
             return;
         }
 
