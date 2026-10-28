@@ -23,7 +23,7 @@ MonoBehaviour:
   glowColor: {r: 0.2, g: 0.5, b: 1, a: 1}
   poseConfirmDelay: 0.2
   castCooldown: 0.4
-  aimMode: 0
+  aimMode: 2
   shownPalmUp: 1
   requirePalmFacingAway: 0
   requirePalmFacingDown: 0
