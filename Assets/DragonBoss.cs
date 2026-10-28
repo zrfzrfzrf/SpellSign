@@ -68,6 +68,8 @@ public class DragonBoss : MonoBehaviour
 		[Tooltip("How long particles gather at the mouth before the first shot, in seconds. (Not used by two-phase attacks: there the charge animation's length decides.)")]
 		public float chargeTime = 0.6f;
 		public Color chargeColor = Color.white;
+		[Tooltip("Largest Projectile Scale an attack type can give this element's shot (a charged one is bigger). 0 = no limit.")]
+		public float maxProjectileScale = 0f;
 	}
 
 	// How an attack plays out, on top of the element's projectile and colors.
@@ -217,6 +219,9 @@ public class DragonBoss : MonoBehaviour
 	// While true the dragon never starts an attack: it lands, stands there and
 	// can be hit (phase changes included). For the sandbox.
 	public bool Passive { get; set; }
+
+	// On the floor where it was placed, done dropping in.
+	public bool Landed => placed && grounded;
 
 	private float attackTimer;
 	private bool attacking;
@@ -1079,13 +1084,14 @@ public class DragonBoss : MonoBehaviour
 		Quaternion facing = toTarget.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(toTarget) : Quaternion.identity;
 
 		GameObject proj = Instantiate(prefab, muzzle.position, facing);
-		proj.transform.localScale *= type.projectileScale;
+		float scale = attack.maxProjectileScale > 0f ? Mathf.Min(type.projectileScale, attack.maxProjectileScale) : type.projectileScale;
+		proj.transform.localScale *= scale;
 
 		BossProjectile bp = proj.GetComponent<BossProjectile>();
 		if (bp != null)
 		{
 			bp.damageAmount = Mathf.RoundToInt(bp.damageAmount * type.damageScale);
-			bp.hitRadius *= type.projectileScale; // a bigger shot connects from further away
+			bp.hitRadius *= scale; // a bigger shot connects from further away
 			bp.Launch(aimPoint, obstacleMask, health.CurrentElement, target);
 		}
 	}

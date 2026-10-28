@@ -14,6 +14,10 @@ namespace SpellSign.Sigils
     // shield!" -- keep trying until the right one is shown. Once it is up it
     // stays up, board or no board, until the attack is over.
     //
+    // In practice (the tutorial) there is no breath: the shield asked for
+    // (Practice) goes up when its shape is shown and stays up until practice
+    // ends. Another shape raises nothing (WrongShape says which it was).
+    //
     // Protects() is the one rule for what a shield stops, used for the dragon's
     // projectiles (Blocks), its breath damage, and where the breath stops in the air.
     //
@@ -30,6 +34,12 @@ namespace SpellSign.Sigils
         public Element element = Element.Fire;
 
         public static SigilShield Instance { get; private set; }
+
+        // The tutorial's shield lesson, see above: the shield asked for, or
+        // null outside the tutorial.
+        public static Element? Practice { get; set; }
+        public static event System.Action<Element> Raised;
+        public static event System.Action<Element> WrongShape; // the shield the shape shown would raise
 
         ColorChanger bubbleVisual;
         Vector3 visualScale;       // the visual's scale that makes it as big as Radius
@@ -103,6 +113,15 @@ namespace SpellSign.Sigils
             if (Instance == this) Instance = null;
         }
 
+        // Without a domain reload on entering play mode, statics keep last run's values.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics()
+        {
+            Practice = null;
+            Raised = null;
+            WrongShape = null;
+        }
+
         void OnScanned(SigilResult result)
         {
             if (result.Type != SigilType.None) Raise(ElementFor(result.Type));
@@ -130,6 +149,22 @@ namespace SpellSign.Sigils
         // right one for it. A wrong one is turned down, with "Wrong shield!".
         public void Raise(Element element)
         {
+            if (Practice != null)
+            {
+                if (up) return;
+                if (element != Practice)
+                {
+                    WrongShape?.Invoke(element);
+                    return;
+                }
+                if (bubbleVisual == null && !BuildVisual()) return;
+                up = true;
+                this.element = element;
+                SetBubbleVisualColor();
+                Raised?.Invoke(element);
+                return;
+            }
+
             if (AttackWarningUI.Instance == null || !AttackWarningUI.Instance.visible)
             {
                 Debug.Log("Can't raise shield now");
@@ -149,13 +184,14 @@ namespace SpellSign.Sigils
             this.element = element;
             SetBubbleVisualColor(); // once per raise: recoloring makes new materials
             AttackWarningUI.SayShielded();
+            Raised?.Invoke(element);
             Debug.Log($"[SigilShield] {element} shield up until the attack is over");
         }
 
         void LateUpdate()
         {
-            // The attack is over: so is the shield.
-            if (up && (AttackWarningUI.Instance == null || !AttackWarningUI.Instance.visible)) Drop();
+            // The attack (or the practice) is over: so is the shield.
+            if (up && Practice == null && (AttackWarningUI.Instance == null || !AttackWarningUI.Instance.visible)) Drop();
 
             RaiseForBoardHeldUp();
             if (!up) return;
@@ -181,8 +217,8 @@ namespace SpellSign.Sigils
         // one is held up.
         void RaiseForBoardHeldUp()
         {
-            if (up || scanner == null || scanner.Recognizer == null) return;
-            if (AttackWarningUI.Instance == null || !AttackWarningUI.Instance.visible) return;
+            if (scanner == null || scanner.Recognizer == null) return;
+            if (up || (Practice == null && (AttackWarningUI.Instance == null || !AttackWarningUI.Instance.visible))) return;
 
             SigilType held = scanner.Recognizer.Declared;
             if (held != SigilType.None) Raise(ElementFor(held));

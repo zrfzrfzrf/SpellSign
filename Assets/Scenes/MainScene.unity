@@ -19728,6 +19728,7 @@ MonoBehaviour:
     shotInterval: 0.2
     chargeTime: 1.35
     chargeColor: {r: 1, g: 0.9, b: 0.2, a: 1}
+    maxProjectileScale: 1.5
   chargeRadius: 0.25
   chargeParticlesPerSecond: 80
   breathTicksPerSecond: 2

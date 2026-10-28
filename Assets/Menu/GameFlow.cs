@@ -3,8 +3,12 @@ using UnityEngine;
 
 // Runs a level from start to finish:
 //   Not Started (start menu) -> Play -> Playing
-//   -> Won (the boss dies) or Lost (the player dies) -> end menu
+//   -> Won (the boss dies), Lost (the player dies) or Time Up (the fight's
+//      time limit ran out) -> end menu
 //   -> Restart puts everything back to a fresh Playing state.
+//
+// The time limit counts down at the top of the player's view (FightTimer)
+// from when the dragon has landed. Only the fight is timed, not the tutorial.
 //
 // Before Play the dragon isn't there at all; pressing Play drops it in front
 // of wherever the player is standing and looking at that moment.
@@ -14,7 +18,8 @@ using UnityEngine;
 //
 // The start menu's TUTORIAL button runs the tutorial (Tutorial) first: the
 // player learns the three signs and which element beats which on floating
-// crystals, and the fight starts when they're done.
+// crystals, then how a drawn shape raises a shield. The fight starts when
+// they're done.
 //
 // The start menu's SANDBOX button leads to a practice mode instead: the dragon
 // stands there without attacking, comes back a moment after it dies, and a
@@ -23,7 +28,7 @@ using UnityEngine;
 // whatever was last tried in the sandbox.
 public class GameFlow : MonoBehaviour
 {
-    public enum State { Playing, Won, Lost, NotStarted, Sandbox, Tutorial }
+    public enum State { Playing, Won, Lost, NotStarted, Sandbox, Tutorial, TimeUp }
     public enum DebugStart { None, Won, Lost }
 
     [Header("What the level is made of")]
@@ -52,6 +57,10 @@ public class GameFlow : MonoBehaviour
     [Tooltip("How spells are cast in the fight. Push = hold a sign, then push the hand out or swing it down. The sandbox starts on this one too.")]
     public HandGestureRecognizer.CastMode fightCastMode = HandGestureRecognizer.CastMode.Push;
 
+    [Header("Time limit")]
+    [Tooltip("Seconds the player has to beat the dragon, counted from when it lands. The countdown shows at the top of their view; at 0:00 the fight ends with TIME'S UP!. 0 = no limit.")]
+    public float fightSeconds = 150f;
+
     [Header("Timing")]
     [Tooltip("Seconds between the fight ending and the menu appearing. Long enough for the boss's death blink to finish.")]
     public float menuDelay = 1.5f;
@@ -65,10 +74,17 @@ public class GameFlow : MonoBehaviour
     StartMenu startMenu;
     SandboxMenu sandboxMenu;
     Tutorial tutorial;
+    FightTimer timer;
     Coroutine sandboxRevive;
+
+    void Awake()
+    {
+        timer = gameObject.AddComponent<FightTimer>();
+    }
 
     void OnEnable()
     {
+        timer.TimeUp += OnTimeUp;
         boss.Died += OnBossDied;
         player.Died += OnPlayerDied;
         menu.RestartPressed += Restart;
@@ -77,6 +93,7 @@ public class GameFlow : MonoBehaviour
 
     void OnDisable()
     {
+        timer.TimeUp -= OnTimeUp;
         boss.Died -= OnBossDied;
         player.Died -= OnPlayerDied;
         menu.RestartPressed -= Restart;
@@ -90,6 +107,7 @@ public class GameFlow : MonoBehaviour
         if (debugStart == DebugStart.Won) Finish(State.Won);
         else if (debugStart == DebugStart.Lost) Finish(State.Lost);
         else if (showStartMenu) WaitForPlay();
+        else StartFight(); // straight into the fight, with the clock running
     }
 
     void WaitForPlay()
@@ -229,6 +247,8 @@ public class GameFlow : MonoBehaviour
 
     void OnPlayerDied() => Finish(State.Lost);
 
+    void OnTimeUp() => Finish(State.TimeUp);
+
     void Finish(State result)
     {
         // Only the first ending counts: a projectile still in flight can kill
@@ -237,13 +257,15 @@ public class GameFlow : MonoBehaviour
 
         Current = result;
         FreezeFight();
-        StartCoroutine(ShowMenuAfterDelay(result == State.Won));
+        StartCoroutine(ShowMenuAfterDelay(result));
     }
 
-    IEnumerator ShowMenuAfterDelay(bool won)
+    IEnumerator ShowMenuAfterDelay(State result)
     {
         yield return new WaitForSeconds(menuDelay);
-        menu.Show(won);
+        menu.Show(result == State.Won ? EndMenu.Result.Won
+                : result == State.TimeUp ? EndMenu.Result.TimeUp
+                : EndMenu.Result.Lost);
     }
 
     void Restart()
@@ -256,13 +278,20 @@ public class GameFlow : MonoBehaviour
         player.Restore();
         boss.Revive();           // works on a living boss too: back to full health and starting element
         dragon.ResetForRestart(); // drops in front of the player again, attacks after the usual delay
+        StartFight();
+    }
 
+    // Spells on and the clock running, with the dragon in and able to attack.
+    void StartFight()
+    {
         SetHandsActive(true);
         Current = State.Playing;
+        if (fightSeconds > 0f) timer.Begin(fightSeconds, () => dragon.Landed);
     }
 
     void FreezeFight()
     {
+        timer.Stop();
         SetHandsActive(false);
         dragon.StopAttacking();
         ClearProjectiles();
