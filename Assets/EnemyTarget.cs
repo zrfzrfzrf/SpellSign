@@ -42,6 +42,10 @@ public class EnemyTarget : MonoBehaviour, ISpellTarget
 	public Color effectiveColor = new Color(0.94f, 0.62f, 0.15f);
 	[Tooltip("Size of the number for hits on the enemy's weakness, relative to normal hits.")]
 	public float effectiveSize = 1.4f;
+	[Tooltip("Color of the number for hits on the head (it also says HEADSHOT!).")]
+	public Color headshotColor = new Color(1f, 0.3f, 0.25f);
+	[Tooltip("Size of the number for hits on the head, relative to normal hits.")]
+	public float headshotSize = 1.8f;
 	[Tooltip("How far in front of the hit point (toward the player) numbers appear, in meters.")]
 	public float numberLift = 0.25f;
 
@@ -166,10 +170,10 @@ public class EnemyTarget : MonoBehaviour, ISpellTarget
 		}
 
 		bool effective = damage == ElementRules.Effective;
-		// A headshot adds a random bonus: at least 1, at most double the damage.
-		if (headCollider != null && struck == headCollider)
-			damage = UnityEngine.Random.Range(damage + 1, damage * 2 + 1); // the upper end is left out
-		ShowDamageNumber(damage, effective, point);
+		// A headshot doubles the damage.
+		bool headshot = headCollider != null && struck == headCollider;
+		if (headshot) damage *= 2;
+		ShowDamageNumber(damage, effective, headshot, point);
 
 		//Flash();
 
@@ -304,14 +308,20 @@ public class EnemyTarget : MonoBehaviour, ISpellTarget
 		return Element.Lightning;
 	}
 
-	void ShowDamageNumber(int damage, bool effective, Vector3 point)
+	// A headshot gets its own color and a bigger number, with HEADSHOT! in small
+	// letters above it, so the player sees why that hit did more.
+	void ShowDamageNumber(int damage, bool effective, bool headshot, Vector3 point)
 	{
 		Camera cam = Camera.main;
 		if (cam != null)
 			point += (cam.transform.position - point).normalized * numberLift;
 
-		DamageNumber.Spawn(point, $"-{damage}", effective ? effectiveColor : normalColor,
-						   effective ? effectiveSize : 1f);
+		string label = $"-{damage}";
+		if (headshot) label = $"<size=45%>{Loc.T("hit.headshot")}</size>\n{label}";
+
+		Color color = headshot ? headshotColor : effective ? effectiveColor : normalColor;
+		float size = headshot ? headshotSize : effective ? effectiveSize : 1f;
+		DamageNumber.Spawn(point, label, color, size);
 	}
 
 	// The point on the enemy's visible bounds closest to the player's head.
