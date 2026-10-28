@@ -6,6 +6,7 @@ menu.walls_block,WALLS BLOCK,VÄGGAR STOPPAR,Start menu and sandbox: the player'
 menu.through_walls,THROUGH WALLS,GENOM VÄGGAR,Start menu and sandbox: the player's spells fly through real walls and the ceiling
 end.victory,VICTORY,SEGER,End screen title after a win
 end.defeat,DEFEAT,FÖRLUST,End screen title after a loss
+end.time_up,TIME'S UP!,TIDEN ÄR UTE!,End screen title when the fight's time limit runs out
 end.restart,RESTART,BÖRJA OM,End screen button: fight the dragon again
 end.menu,MENU,MENY,End screen button: back to the start menu
 end.next_level,NEXT LEVEL,NÄSTA NIVÅ,End screen button
@@ -16,6 +17,8 @@ tutorial.make_sign,"Make the {0} sign, then push","Gör tecknet för {0}, tryck 
 tutorial.wrong_spell,"That was {0}. Make the {1} sign, then push","Det där var {0}. Gör tecknet för {1}, tryck sedan framåt",{0} = element the player cast. {1} = element to cast (capitals)
 tutorial.beats,{0} beats {1}!,{0} slår {1}!,{0} and {1} = element names
 tutorial.mixed,Break each crystal with the element that beats it,Krossa varje kristall med elementet som slår den,Last tutorial step: three crystals at once
+tutorial.shield_wrong,That was the {0}. Show the {1},Det där var {0}. Visa {1},Shield step of the tutorial: the wrong shape was shown. {0} and {1} = shape.* texts
+tutorial.shield_up,{0}! Use it when the dragon breathes,{0}! Använd den när draken andas,{0} = a shield.* text (e.g. WATER SHIELD)
 tutorial.done,Well done! Here comes the dragon!,Bra jobbat! Här kommer draken!,End of the tutorial
 tutorial.exit,EXIT,AVSLUTA,Staff button beside the player that leaves the tutorial
 crystal.effective,Super effective!,Supereffektivt!,Pops up when a crystal breaks

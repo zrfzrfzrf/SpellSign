@@ -14,6 +14,11 @@ using UnityEngine;
 //   4.   All three crystals at once and no ghost hand: the player picks the
 //        right spell for each. A wrong one bounces off and the wheel flashes
 //        the arrow that would work.
+//   5.   Shields: the board asks for the Water shield -- the circle, drawn
+//        on paper and held up to the headset. It goes up around the player,
+//        and the board says it's for when the dragon breathes. Water because
+//        the dragon starts as Water: its first breath needs this shield.
+//        Another shape raises nothing; the board says which one that was.
 //   Then the dragon arrives and the fight starts (Finished).
 //
 // Nothing is ever skipped for the player: if they're stuck the help gets
@@ -36,6 +41,8 @@ public class Tutorial : MonoBehaviour
     const float HintPulseEvery = 2f;     // seconds between pulses of the crystal the hint is for
     const float LessonPause = 1.8f;      // seconds to take in each lesson before the next crystal
     const float FinishPause = 2f;        // seconds of "here comes the dragon" before the fight
+    const float ShieldPause = 4f;        // seconds to look at the shield and read about it
+    const Element ShieldLesson = Element.Water; // the dragon's starting element
     const int Order = 20;                // sorting order of the board's lowest layer
     static readonly Color BoardColor = new Color(0.04f, 0.05f, 0.09f, 0.75f);
     static readonly Color TextColor = new Color(0.95f, 0.95f, 1f);
@@ -72,6 +79,7 @@ public class Tutorial : MonoBehaviour
     Transform exitPanel;
     Material panelMaterial, boardMaterial;
     Coroutine running;
+    bool shieldRaised;        // the shield step: the player put it up
 
     public void Begin()
     {
@@ -85,6 +93,9 @@ public class Tutorial : MonoBehaviour
     {
         if (running != null) StopCoroutine(running);
         running = null;
+        SpellSign.Sigils.SigilShield.Raised -= OnShieldRaised;
+        SpellSign.Sigils.SigilShield.WrongShape -= OnWrongShape;
+        SpellSign.Sigils.SigilShield.Practice = null;
         crystals.Clear();
         ghostTarget = null;
         if (exitPanel != null && HandGestureRecognizer.QuietPanel == exitPanel) HandGestureRecognizer.QuietPanel = null;
@@ -102,6 +113,7 @@ public class Tutorial : MonoBehaviour
             yield return Lesson(sign);
 
         yield return MixedRoundStep();
+        yield return ShieldStep();
 
         Say(Loc.T("tutorial.done"), DoneColor);
         yield return new WaitForSeconds(FinishPause);
@@ -198,6 +210,31 @@ public class Tutorial : MonoBehaviour
         }
         HideGhost();
     }
+
+    // The Water shield, held up as its shape. No attack: just seeing it work.
+    IEnumerator ShieldStep()
+    {
+        shieldRaised = false;
+        SpellSign.Sigils.SigilShield.Raised += OnShieldRaised;
+        SpellSign.Sigils.SigilShield.WrongShape += OnWrongShape;
+        SpellSign.Sigils.SigilShield.Practice = ShieldLesson;
+        Say(Loc.T("warning.raise", Loc.T("shield." + ShieldLesson), SpellSign.Sigils.SigilShield.ShapeName(ShieldLesson)),
+            ElementLook.Color(ShieldLesson));
+
+        while (!shieldRaised) yield return null;
+        Say(Loc.T("tutorial.shield_up", Loc.T("shield." + ShieldLesson)), ElementLook.Color(ShieldLesson));
+        yield return new WaitForSeconds(ShieldPause);
+
+        SpellSign.Sigils.SigilShield.Raised -= OnShieldRaised;
+        SpellSign.Sigils.SigilShield.WrongShape -= OnWrongShape;
+        SpellSign.Sigils.SigilShield.Practice = null; // the bubble goes
+    }
+
+    void OnShieldRaised(Element shield) => shieldRaised = true;
+
+    void OnWrongShape(Element shield) =>
+        Say(Loc.T("tutorial.shield_wrong", SpellSign.Sigils.SigilShield.ShapeName(shield), SpellSign.Sigils.SigilShield.ShapeName(ShieldLesson)),
+            ElementLook.Color(ShieldLesson));
 
     void LateUpdate()
     {

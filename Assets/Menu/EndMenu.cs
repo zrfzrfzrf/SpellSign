@@ -3,7 +3,7 @@ using TMPro;
 using UnityEngine;
 
 // The end-of-level menu: a panel that appears in front of the player with the
-// result and two touch buttons: RESTART, and MENU back to the start menu (with
+// result (won, lost, or the fight's time ran out) and two touch buttons: RESTART, and MENU back to the start menu (with
 // its tutorial and sandbox). A NEXT LEVEL button joins them, on a row below,
 // once there is a next level. It stays where it appeared (not stuck to the
 // head), within arm's reach, upright and facing the player -- until the player
@@ -20,6 +20,9 @@ public class EndMenu : MonoBehaviour
     static readonly Color PanelColor = new Color(0.04f, 0.05f, 0.09f, 0.9f);
     static readonly Color WonColor = new Color(0.45f, 0.95f, 0.55f);
     static readonly Color LostColor = new Color(1f, 0.35f, 0.3f);
+    static readonly Color TimeUpColor = new Color(1f, 0.8f, 0.3f);
+
+    public enum Result { Won, Lost, TimeUp }
 
     [Tooltip("Both hands. Their index fingertips are what presses the buttons.")]
     public HandGestureRecognizer[] hands;
@@ -46,15 +49,16 @@ public class EndMenu : MonoBehaviour
     TouchButton menuButton;
     TouchButton nextLevelButton; // only once there is a next level
 
-    public void Show(bool won)
+    public void Show(Result result)
     {
         if (panel == null) Build();
 
-        title.text = Loc.T(won ? "end.victory" : "end.defeat");
+        bool won = result == Result.Won;
+        title.text = Loc.T(won ? "end.victory" : result == Result.TimeUp ? "end.time_up" : "end.defeat");
         restartButton.Text = Loc.T("end.restart");
         menuButton.Text = Loc.T("end.menu");
         if (nextLevelButton != null) nextLevelButton.Text = Loc.T("end.next_level");
-        title.color = won ? WonColor : LostColor;
+        title.color = won ? WonColor : result == Result.TimeUp ? TimeUpColor : LostColor;
         Transform[] tips = MenuParts.IndexTips(hands);
         restartButton.Fingertips = tips;
         menuButton.Fingertips = tips;
