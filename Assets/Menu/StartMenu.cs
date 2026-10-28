@@ -7,10 +7,10 @@ using UnityEngine;
 // GameFlow keeps the dragon away and spell casting off, and starts the fight
 // on PlayPressed. With Show Tutorial on there is a TUTORIAL button beside it
 // (TutorialPressed), and with Show Sandbox a SANDBOX button below, for the
-// practice mode (SandboxPressed). Below them, WALLS BLOCK and THROUGH WALLS:
-// whether the player's spells stop at the scanned room or fly through it
-// (RoomWalls), the chosen one lit. Along the bottom, a flag for each language
-// (Loc): touch one to switch every text in the game to it.
+// practice mode (SandboxPressed). Below them, with Show Walls, WALLS BLOCK and
+// THROUGH WALLS: whether the player's spells stop at the scanned room or fly
+// through it (RoomWalls), the chosen one lit. Along the bottom, a flag for each
+// language (Loc): touch one to switch every text in the game to it.
 //
 // Built from code like EndMenu. GameFlow adds this component itself, so it
 // needs no scene setup.
@@ -46,6 +46,8 @@ public class StartMenu : MonoBehaviour
     public bool showTutorial = false;
     [Tooltip("Adds the SANDBOX button. Set before the menu is first shown.")]
     public bool showSandbox = false;
+    [Tooltip("Adds the WALLS BLOCK / THROUGH WALLS row. Set before the menu is first shown.")]
+    public bool showWalls = true;
 
     public event Action PlayPressed;
     public event Action TutorialPressed;
@@ -101,7 +103,8 @@ public class StartMenu : MonoBehaviour
         }
 
         // The walls choice: one more row, of two buttons.
-        var size = new Vector2(WideWidth, OneRowHeight + RowSpacing * rows.Count + FlagRow);
+        int rowCount = rows.Count + (showWalls ? 1 : 0);
+        var size = new Vector2(WideWidth, OneRowHeight + RowSpacing * (rowCount - 1) + FlagRow);
         panelMaterial = MenuParts.NewMaterial(PanelColor);
         MenuParts.NewQuad(panel, "Background", panelMaterial, size, Vector3.zero, Order);
 
@@ -123,11 +126,14 @@ public class StartMenu : MonoBehaviour
             }
         }
 
-        float wallsY = titleY - 0.14f - RowSpacing * rows.Count;
-        wallsBlock = WallsButton("menu.walls_block", -0.13f, wallsY, false);
-        throughWalls = WallsButton("menu.through_walls", 0.13f, wallsY, true);
+        if (showWalls)
+        {
+            float wallsY = titleY - 0.14f - RowSpacing * rows.Count;
+            wallsBlock = WallsButton("menu.walls_block", -0.13f, wallsY, false);
+            throughWalls = WallsButton("menu.through_walls", 0.13f, wallsY, true);
+        }
 
-        BuildFlags(wallsY - 0.095f);
+        BuildFlags(titleY - 0.14f - RowSpacing * (rowCount - 1) - 0.095f);
         Loc.Changed += ShowLanguage;
         RoomWalls.Changed += ShowWalls;
     }

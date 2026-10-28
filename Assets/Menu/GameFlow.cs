@@ -46,6 +46,8 @@ public class GameFlow : MonoBehaviour
     public bool showSandboxButton = true;
     [Tooltip("Put a TUTORIAL button on the start menu: the three signs and the elements, on crystals, before the fight.")]
     public bool showTutorialButton = true;
+    [Tooltip("Put the WALLS BLOCK / THROUGH WALLS choice on the start menu. Off = spells always fly through the room's walls, and the choice isn't shown.")]
+    public bool showWallsButtons = true;
 
     [Header("Tutorial")]
     [Tooltip("Meta's OculusHand_R model, for the tutorial's ghost hand.")]
@@ -103,6 +105,7 @@ public class GameFlow : MonoBehaviour
     void Start()
     {
         HandGestureRecognizer.Mode = fightCastMode;
+        if (!showWallsButtons) RoomWalls.SpellsPassThrough = true;
 
         if (debugStart == DebugStart.Won) Finish(State.Won);
         else if (debugStart == DebugStart.Lost) Finish(State.Lost);
@@ -122,6 +125,7 @@ public class GameFlow : MonoBehaviour
             startMenu.hands = hands;
             startMenu.showSandbox = showSandboxButton;
             startMenu.showTutorial = showTutorialButton;
+            startMenu.showWalls = showWallsButtons;
             startMenu.PlayPressed += Play;
             startMenu.TutorialPressed += EnterTutorial;
             startMenu.SandboxPressed += EnterSandbox;
