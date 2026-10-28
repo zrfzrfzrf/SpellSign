@@ -227,6 +227,7 @@ public class HandGestureRecognizer : MonoBehaviour
     private float moveSpeed, turnRate;  // how fast the hand is moving (m/s) and turning (deg/s), any direction
     private Vector3 flickFromOffset, flickFromAlong; // where the movement under way started
     private Vector3 flickFromFinger;    // ...and which way the index finger pointed
+    private Vector3 flickFromHorns;     // ...and the line between index and pinky
     private float flickFromReach;       // ...and how far from the chest the hand was then
     private float flickFromTime;        // ...and when
     private float flickMinReach;        // the closest to the chest it has come since
@@ -238,7 +239,7 @@ public class HandGestureRecognizer : MonoBehaviour
     private bool flickEnded;            // a flick that hasn't cast yet ended this frame
     private Vector3 recoverOffset, recoverAlong; // where the last flick began: coming back there doesn't cast
     private float recoverUntil = -1f;
-    private Vector3 heldHandAim, heldFingerAim;  // the aim from the start of a flick, used for its cast
+    private Vector3 heldHandAim, heldFingerAim, heldHornsAim;  // the aim from the start of a flick, used for its cast
     private float aimHeldUntil = -1f;
     private bool pointArmed = true;     // the hand has been off any enemy, so pointing at one casts
     private bool onEnemy;               // the hand points at an enemy right now
@@ -267,6 +268,7 @@ public class HandGestureRecognizer : MonoBehaviour
     private Vector3 smoothedPalm;
     private Vector3 smoothedIndexTip;
     private Vector3 smoothedIndexKnuckle;
+    private Vector3 smoothedPinkyTip;
     private bool haveSmoothedAim = false;
 
     void Start()
@@ -635,6 +637,7 @@ public class HandGestureRecognizer : MonoBehaviour
                     {
                         heldHandAim = flickFromAlong;
                         heldFingerAim = flickFromFinger;
+                        heldHornsAim = flickFromHorns;
                         aimHeldUntil = Time.time + ThrustBufferTime;
                     }
                     else
@@ -659,6 +662,7 @@ public class HandGestureRecognizer : MonoBehaviour
         flickFromOffset = offset;
         flickFromAlong = along;
         flickFromFinger = indexTip != null && indexKnuckle != null ? (indexTip.position - indexKnuckle.position).normalized : along;
+        flickFromHorns = indexTip != null && pinkyTip != null ? HornsAim(indexTip.position, pinkyTip.position, palm.position) : along;
         flickFromReach = flickMinReach = reach;
         flickFromTime = Time.time;
     }
@@ -823,6 +827,7 @@ public class HandGestureRecognizer : MonoBehaviour
         smoothedPalm = palm.position;
         if (indexTip != null) smoothedIndexTip = indexTip.position;
         if (indexKnuckle != null) smoothedIndexKnuckle = indexKnuckle.position;
+        if (pinkyTip != null) smoothedPinkyTip = pinkyTip.position;
 
         // The jump this makes in the smoothed joints is not movement of the hand.
         Transform head = Head();
@@ -966,6 +971,7 @@ public class HandGestureRecognizer : MonoBehaviour
             smoothedPalm = palm.position;
             if (indexTip != null) smoothedIndexTip = indexTip.position;
             if (indexKnuckle != null) smoothedIndexKnuckle = indexKnuckle.position;
+            if (pinkyTip != null) smoothedPinkyTip = pinkyTip.position;
             haveSmoothedAim = true;
             return;
         }
@@ -975,6 +981,8 @@ public class HandGestureRecognizer : MonoBehaviour
             smoothedIndexTip = Vector3.Lerp(smoothedIndexTip, indexTip.position, aimSmoothSpeed * Time.deltaTime);
         if (indexKnuckle != null)
             smoothedIndexKnuckle = Vector3.Lerp(smoothedIndexKnuckle, indexKnuckle.position, aimSmoothSpeed * Time.deltaTime);
+        if (pinkyTip != null)
+            smoothedPinkyTip = Vector3.Lerp(smoothedPinkyTip, pinkyTip.position, aimSmoothSpeed * Time.deltaTime);
     }
 
     void OnPoseDetected(SpellPoseDefinition pose, PoseRuntime state)
@@ -1016,10 +1024,10 @@ public class HandGestureRecognizer : MonoBehaviour
         Vector3 direction = GetAimDirection(pose);
 
         // Aim Pitch Correction was tuned for the generic hand-forward aim
-        // (Fire). Point With Fingers is already the real finger direction --
+        // (Fire). The finger modes are already the real finger direction --
         // stacking the same correction on top of it is exactly what would
-        // knock Lightning's angle off, so skip it for that mode.
-        if (aimPitchCorrection != 0f && pose.aimMode != SpellPoseDefinition.AimMode.PointWithFingers)
+        // knock Lightning's angle off, so skip it for those.
+        if (aimPitchCorrection != 0f && pose.aimMode == SpellPoseDefinition.AimMode.UseHandDefault)
             direction = Quaternion.AngleAxis(aimPitchCorrection, palm.right) * direction;
 
         Vector3 spawnPosition = palm.position + direction * spawnOffset;
@@ -1050,12 +1058,23 @@ public class HandGestureRecognizer : MonoBehaviour
             return fromFlickStart ? heldFingerAim : (smoothedIndexTip - smoothedIndexKnuckle).normalized;
         }
 
+        if (pose.aimMode == SpellPoseDefinition.AimMode.BetweenIndexAndPinky
+            && indexTip != null && pinkyTip != null)
+        {
+            return fromFlickStart ? heldHornsAim : HornsAim(smoothedIndexTip, smoothedPinkyTip, smoothedPalm);
+        }
+
         if (aimSource != null)
             return aimSource.forward;
         if (indexKnuckle != null)
             return fromFlickStart ? heldHandAim : (smoothedIndexKnuckle - smoothedPalm).normalized;
         return GetAxisDirection(handForwardAxis);
     }
+
+    // From the wrist to halfway between the index and pinky tips: down the
+    // middle of the gap between the two raised fingers of the horns.
+    static Vector3 HornsAim(Vector3 indexTip, Vector3 pinkyTip, Vector3 wrist) =>
+        ((indexTip + pinkyTip) * 0.5f - wrist).normalized;
 
     // Shared by aiming (handForwardAxis) and the palm-facing check (palmNormalAxis) --
     // both just need "some local axis of the palm transform, as a world direction."

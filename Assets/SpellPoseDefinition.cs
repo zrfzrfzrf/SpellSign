@@ -48,11 +48,12 @@ public class SpellPoseDefinition : ScriptableObject
     [Tooltip("Minimum time (seconds) between casts of THIS spell specifically.")]
     public float castCooldown = 0.4f;
 
-    public enum AimMode { UseHandDefault, PointWithFingers }
+    public enum AimMode { UseHandDefault, PointWithFingers, BetweenIndexAndPinky }
 
     [Header("Aiming")]
     [Tooltip("Use Hand Default = the same aimSource -> indexKnuckle -> local axis fallback every pose used before -- good for poses like a fist where nothing is extended to point with. " +
-             "Point With Fingers = aim exactly along your extended index finger (index knuckle -> index tip), which reads far more naturally for poses like Scissors/Lightning where you're actually pointing at something.")]
+             "Point With Fingers = aim exactly along your extended index finger (index knuckle -> index tip), which reads far more naturally for poses like Scissors/Lightning where you're actually pointing at something. " +
+             "Between Index And Pinky = from the wrist to halfway between the index and pinky tips, down the middle of the horns (Water).")]
     public AimMode aimMode = AimMode.UseHandDefault;
 
     [Header("Tutorial")]
