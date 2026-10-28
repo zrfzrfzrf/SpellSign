@@ -6597,6 +6597,8 @@ MonoBehaviour:
   palmNormalAxis: 3
   palmAwayDotThreshold: 0
   palmDownDotThreshold: 0.3
+  aimAssistAngle: 8
+  aimAssistFullShare: 0.4
   debugLogState: 1
   aimSmoothSpeed: 20
 --- !u!1 &399042332
@@ -17323,6 +17325,8 @@ MonoBehaviour:
   palmNormalAxis: 3
   palmAwayDotThreshold: 0
   palmDownDotThreshold: 0.3
+  aimAssistAngle: 8
+  aimAssistFullShare: 0.4
   debugLogState: 1
   aimSmoothSpeed: 20
 --- !u!114 &984317020
@@ -18396,6 +18400,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18c785b0b848f38468da8b077b63676c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  belowCenter: 245
+  fontSize: 26
   warningVisual: {fileID: 178524473}
 --- !u!1 &1080496974
 GameObject:
@@ -19648,7 +19654,7 @@ MonoBehaviour:
   requireLineOfSight: 0
   attackTypes:
   - name: Normal
-    weight: 0.6
+    weight: 0.5
     chargeTimeScale: 1
     chargeEffectScale: 1
     shots: 0
@@ -19667,7 +19673,7 @@ MonoBehaviour:
     breathDamage: 35
     breathAnimatorSpeed: 1
   - name: Charge
-    weight: 0.25
+    weight: 0.3
     chargeTimeScale: 1.3333333
     chargeEffectScale: 2
     shots: 1
@@ -19686,7 +19692,7 @@ MonoBehaviour:
     breathDamage: 35
     breathAnimatorSpeed: 1
   - name: Breath
-    weight: 0.15
+    weight: 0.2
     chargeTimeScale: 2.222222
     chargeEffectScale: 3
     shots: 1
@@ -19782,7 +19788,7 @@ MonoBehaviour:
   flashColor: {r: 1, g: 0.6084906, b: 0.6084906, a: 1}
   deathBlinks: 4
   blinkInterval: 0.15
-  maxHealth: 60
+  maxHealth: 45
   healthBarFill: {fileID: 2029895961}
   headCollider: {fileID: 1705437423}
   normalColor: {r: 1, g: 1, b: 1, a: 1}

@@ -21,6 +21,7 @@ tutorial.exit,EXIT,AVSLUTA,Staff button beside the player that leaves the tutori
 crystal.effective,Super effective!,Supereffektivt!,Pops up when a crystal breaks
 crystal.no_effect,No effect,Ingen effekt,Pops up when the spell is the crystal's own element
 crystal.too_weak,Too weak,För svagt,Pops up when the spell is the wrong element
+hit.headshot,HEADSHOT!,HUVUDSKOTT!,Small text above the damage number when a spell hits the dragon's head
 warning.title,GUARDIAN! PROTECT YOUR MAGE,VÄKTARE! SKYDDA DIN MAGIKER,Warning when the dragon is about to breathe
 warning.raise,Raise a {0}: show the {1},Skapa en {0}: visa {1},{0} = a shield.* text below. {1} = a shape.* text below
 warning.wrong,Wrong shield!,Fel sköld!,The shape shown makes the wrong shield
