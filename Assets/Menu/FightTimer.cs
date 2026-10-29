@@ -11,8 +11,8 @@ using UnityEngine;
 // fight; the rest of the time it is hidden.
 public class FightTimer : MonoBehaviour
 {
-    const float AboveCenter = 190f;  // canvas units (millimetres on the head-locked canvas) above the middle of the view
-    const float FontSize = 40f;
+    const float AboveCenter = 140f;  // canvas units (millimetres on the head-locked canvas) above the middle of the view. Low enough to show in a cast to a screen, which crops the view
+    const float FontSize = 20f;
     const float HurryFrom = 10f;     // seconds left when it turns red
     const float BeatGrowth = 0.35f;  // how much bigger each of the last seconds starts
     static readonly Color NormalColor = Color.white;
@@ -99,7 +99,7 @@ public class FightTimer : MonoBehaviour
         root.SetParent(canvas.rootCanvas.transform, false);
         root.anchorMin = root.anchorMax = new Vector2(0.5f, 0.5f);
         root.pivot = new Vector2(0.5f, 0.5f); // beats grow from its middle
-        root.sizeDelta = new Vector2(200f, 60f);
+        root.sizeDelta = new Vector2(100f, 30f);
         root.anchoredPosition = new Vector2(0f, AboveCenter);
 
         // Drawn after everything else, like the breath warning.
